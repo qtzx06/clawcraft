@@ -74,6 +74,38 @@ body::before {
   }
 }
 
+@keyframes gold-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gold-text {
+  background: linear-gradient(
+    -45deg,
+    #8B6914 0%,
+    #c8a84e 15%,
+    #f5e6a3 30%,
+    #d4af37 45%,
+    #8B6914 55%,
+    #c8a84e 70%,
+    #f5e6a3 85%,
+    #8B6914 100%
+  );
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gold-flow 8s ease infinite;
+  filter: drop-shadow(0 0 30px rgba(200, 168, 78, 0.3));
+}
+
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
@@ -134,22 +166,53 @@ body::before {
 /* ── logo frame ── */
 
 .minecraft-gold-frame {
-  padding: 14px;
-  border: 3px solid #7b5d14;
-  background:
-    linear-gradient(135deg, #f5e6a3 0%, #d4af37 34%, #b88f2b 65%, #7f6219 100%);
-  box-shadow:
-    inset 0 0 0 2px #f9efc4,
-    inset 0 0 0 5px #9b7821,
-    4px 4px 0 #6c5112,
-    8px 8px 0 #4b380e;
+  padding: 12px;
+  position: relative;
+  border: 1px solid #4f3c0f;
+  background: rgba(10, 10, 10, 0.22);
   image-rendering: pixelated;
 }
 
 .minecraft-gold-frame::before {
   content: '';
   position: absolute;
-  inset: 5px;
-  border: 2px solid rgba(255, 247, 201, 0.6);
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #f7e58b 0 2px,
+      #d6ab2f 2px 4px,
+      #b88921 4px 6px,
+      #efcf57 6px 8px
+    ) top / 100% 2px no-repeat,
+    repeating-linear-gradient(
+      90deg,
+      #e6c14e 0 2px,
+      #b88420 2px 4px,
+      #f4dc82 4px 6px,
+      #c89a2d 6px 8px
+    ) bottom / 100% 2px no-repeat,
+    repeating-linear-gradient(
+      0deg,
+      #f8e487 0 2px,
+      #cf9f2a 2px 4px,
+      #b4831f 4px 6px,
+      #efcf5a 6px 8px
+    ) left / 2px 100% no-repeat,
+    repeating-linear-gradient(
+      0deg,
+      #ebc95b 0 2px,
+      #b3811d 2px 4px,
+      #f6de82 4px 6px,
+      #ca992a 6px 8px
+    ) right / 2px 100% no-repeat;
+}
+
+.minecraft-gold-frame::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 240, 185, 0.25);
   pointer-events: none;
 }
