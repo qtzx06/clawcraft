@@ -7,6 +7,7 @@ require('dotenv').config({
 
 const { MissionBoard } = require('./mission-board/mission-board');
 const { AgentRuntime } = require('./agents/agent-runtime');
+const { buildPremiumContext } = require('./persona/persona-graph');
 
 const DEFAULT_PORT = 3020;
 const DEFAULT_SERVER_PORT = Number(process.env.OPENCLAW_BRIDGE_PORT || DEFAULT_PORT);
@@ -99,6 +100,24 @@ function normalizePayload(payload = {}) {
   };
 }
 
+function normalizePremiumPayload(payload = {}) {
+  const soul = payload.soul || payload.soul_file || payload.soul_path || payload.soulSource;
+  if (!soul) throw new ApiError(400, 'soul is required');
+
+  return {
+    soul,
+    gameState: payload.game_state && typeof payload.game_state === 'object'
+      ? payload.game_state
+      : payload.gameState && typeof payload.gameState === 'object'
+        ? payload.gameState
+        : {},
+    action: payload.action && typeof payload.action === 'object' ? payload.action : {},
+    mission: payload.mission && typeof payload.mission === 'object' ? payload.mission : {},
+    llm: payload.llm || {},
+    use_llm: payload.use_llm !== false
+  };
+}
+
 class OpenClawBridge {
   constructor(config = {}) {
     this.port = config.port;
@@ -180,8 +199,19 @@ class OpenClawBridge {
     const baseUrl = overrides.baseUrl || llm.baseUrl || process.env.LLM_BASE_URL;
     const apiKey = overrides.apiKey || llm.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
     const model = overrides.model || llm.model || process.env.LLM_MODEL || 'gpt-4o-mini';
-    const temperature = Number.isFinite(overrides.temperature) ? Number(overrides.temperature) : llm.temperature;
-    const timeoutMs = Number.isFinite(overrides.timeoutMs) ? Number(overrides.timeoutMs) : llm.timeoutMs;
+    const temperature = Number.isFinite(Number(overrides.temperature)) ? Number(overrides.temperature)
+      : Number.isFinite(Number(process.env.LLM_TEMPERATURE))
+        ? Number(process.env.LLM_TEMPERATURE)
+        : Number.isFinite(Number(llm.temperature))
+          ? Number(llm.temperature)
+        : 0.4;
+    const timeoutMs = Number.isFinite(Number(overrides.timeoutMs))
+      ? Number(overrides.timeoutMs)
+      : Number.isFinite(Number(llm.timeoutMs))
+        ? Number(llm.timeoutMs)
+        : Number.isFinite(Number(process.env.LLM_TIMEOUT_MS))
+          ? Number(process.env.LLM_TIMEOUT_MS)
+          : 15000;
 
     return {
       baseUrl: baseUrl || 'https://api.openai.com/v1',
@@ -347,6 +377,36 @@ class OpenClawBridge {
     };
   }
 
+  async getPremiumContext(payload = {}) {
+    const normalized = normalizePremiumPayload(payload);
+    const soul = await this.loadSoul(normalized.soul);
+    const llmConfig = normalized.use_llm ? this.getLlmConfig(normalized.llm) : null;
+    const context = await buildPremiumContext(soul, normalized.gameState, normalized.action, {
+      mission: normalized.mission,
+      llmConfig
+    });
+
+    return context;
+  }
+
+  async getPremiumVoice(payload = {}) {
+    const context = await this.getPremiumContext(payload);
+    return { voice: context.voice };
+  }
+
+  async getPremiumAvatar(payload = {}) {
+    const context = await this.getPremiumContext(payload);
+    return { avatarPrompt: context.avatarPrompt };
+  }
+
+  async getPremiumNarration(payload = {}) {
+    const context = await this.getPremiumContext(payload);
+    return { narration: {
+      text: context.narrationSeed || '',
+      in_character: true
+    } };
+  }
+
   setupRoutes() {
     const safeParse = (handler) => async (req, res) => {
       try {
@@ -379,6 +439,26 @@ class OpenClawBridge {
     this.app.post('/openclaw/missions', parseJsonBody, safeParse(async (req) => ({
       action: 'mission_posted',
       result: await this.addMission(req.body || {})
+    })));
+
+    this.app.post('/openclaw/premium/context', parseJsonBody, safeParse(async (req) => ({
+      action: 'premium_context',
+      result: await this.getPremiumContext(req.body || {})
+    })));
+
+    this.app.post('/openclaw/premium/voice', parseJsonBody, safeParse(async (req) => ({
+      action: 'premium_voice',
+      result: await this.getPremiumVoice(req.body || {})
+    })));
+
+    this.app.post('/openclaw/premium/avatar', parseJsonBody, safeParse(async (req) => ({
+      action: 'premium_avatar',
+      result: await this.getPremiumAvatar(req.body || {})
+    })));
+
+    this.app.post('/openclaw/premium/narrate', parseJsonBody, safeParse(async (req) => ({
+      action: 'premium_narrate',
+      result: await this.getPremiumNarration(req.body || {})
     })));
 
     this.app.get('/openclaw/agents', safeParse(async () => ({

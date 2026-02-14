@@ -28,6 +28,20 @@ Quick start
    - `npm run start:openclaw-bridge`
    - Set `OPENCLAW_BRIDGE_PORT` for a custom port
    - Optional token guard with `OPENCLAW_BRIDGE_TOKEN`
+6. Optional: enable LLM-powered premium outputs (voice, avatar, narration):
+   - Set `LLM_API_KEY` (or `OPENAI_API_KEY`) in `.env`.
+   - Tune `LLM_MODEL`, `LLM_BASE_URL`, and `LLM_TIMEOUT_MS` if needed.
+   - Call OpenClaw premium endpoints with inline SOUL and optional `gameState` / `action` / `mission`.
+
+OpenClaw Premium Endpoints (via Bridge)
+---------------------------------------
+
+- `POST /openclaw/premium/context`
+- `POST /openclaw/premium/voice`
+- `POST /openclaw/premium/avatar`
+- `POST /openclaw/premium/narrate`
+
+If LLM credentials are absent, these endpoints still work in deterministic mode using rules in `premium-primitives.js`.
 
 What this implementation includes
 --------------------------------
