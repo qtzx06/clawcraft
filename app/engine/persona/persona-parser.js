@@ -12,6 +12,13 @@ function normalizeLines(text) {
 
 function parseSimpleList(rawText) {
   if (!rawText) return [];
+  if (Array.isArray(rawText)) {
+    return rawText.flatMap((entry) => parseSimpleList(entry));
+  }
+  if (typeof rawText === 'object') return [];
+  if (typeof rawText !== 'string') {
+    return parseSimpleList(String(rawText));
+  }
   return rawText
     .split(/[\n,]/)
     .map((line) => line.replace(/^[\-*•]\s*/, '').trim())
