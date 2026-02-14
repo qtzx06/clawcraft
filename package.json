@@ -5,7 +5,9 @@
   "description": "Mineflayer bot observability and POV viewer for ClawCraft",
   "scripts": {
     "start:bot-observe": "node app/bot-observe.js",
-    "check:bot-observe": "node --check app/bot-observe.js"
+    "start:engine": "node app/engine/run-fleet.js",
+    "check:bot-observe": "node --check app/bot-observe.js",
+    "check:engine": "node --check app/engine/run-fleet.js app/engine/config/agents.config.json"
   },
   "dependencies": {
     "canvas": "^3.2.1",

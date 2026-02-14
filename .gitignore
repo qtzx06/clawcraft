@@ -10,3 +10,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+app/engine/mission-board/*.runtime.json
+
+# External Mindcraft source
+external/mindcraft/
