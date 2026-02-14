@@ -1,0 +1,100 @@
+{
+  "mc": {
+    "host": "127.0.0.1",
+    "port": 25565,
+    "auth": "offline"
+  },
+  "missionBoardFile": "app/engine/mission-board/state.runtime.json",
+  "missionPollMs": 7000,
+  "agentLoopMs": 9000,
+  "maxAttemptsPerMission": 2,
+  "collectiveGoal": "Build a collaborative village before nightfall.",
+  "seed": {
+    "collective_goal": "Build a collaborative village before nightfall.",
+    "missions": [
+      {
+        "task": "gather 64 oak logs",
+        "status": "open",
+        "priority": "normal",
+        "source": "system",
+        "progress": {
+          "text": "Seed mission",
+          "updated_at": "1970-01-01T00:00:00.000Z"
+        }
+      },
+      {
+        "task": "mine 32 cobblestone",
+        "status": "open",
+        "priority": "normal",
+        "source": "system",
+        "progress": {
+          "text": "Seed mission",
+          "updated_at": "1970-01-01T00:00:00.000Z"
+        }
+      },
+      {
+        "task": "craft 1 stone pickaxe",
+        "status": "open",
+        "priority": "normal",
+        "source": "system",
+        "progress": {
+          "text": "Seed mission",
+          "updated_at": "1970-01-01T00:00:00.000Z"
+        }
+      }
+    ],
+    "viewer_missions": [
+      {
+        "task": "everyone dig a safe shaft",
+        "tipper": "0xviewer1",
+        "amount": "0.50",
+        "priority": "high",
+        "status": "open",
+        "source": "viewer",
+        "progress": {
+          "text": "Viewer seeded mission",
+          "updated_at": "1970-01-01T00:00:00.000Z"
+        }
+      }
+    ]
+  },
+  "agents": [
+    {
+      "id": "chad",
+      "username": "ChadBot",
+      "soul_file": "app/engine/souls/chad.md",
+      "connector": "mineflayer"
+    },
+    {
+      "id": "builder",
+      "username": "BuilderBob",
+      "soul_file": "app/engine/souls/builder.md",
+      "connector": "mineflayer"
+    },
+    {
+      "id": "goblin",
+      "username": "GoblinKing",
+      "soul_file": "app/engine/souls/goblin.md",
+      "connector": "mineflayer"
+    },
+    {
+      "id": "philosopher",
+      "username": "Philosopher",
+      "soul_file": "app/engine/souls/philosopher.md",
+      "connector": "mineflayer"
+    },
+    {
+      "id": "speed",
+      "username": "Speedrunner",
+      "soul_file": "app/engine/souls/speedrunner.md",
+      "connector": "mineflayer"
+    }
+  ],
+  "llm": {
+    "provider": "openai-compatible",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "gpt-4o-mini",
+    "temperature": 0.4,
+    "timeoutMs": 15000
+  }
+}
