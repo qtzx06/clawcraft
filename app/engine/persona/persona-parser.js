@@ -1,5 +1,7 @@
 const fs = require('fs/promises');
 
+const ALLOWED_TOOL_ACTIONS = ['mine', 'build', 'craft', 'fight', 'eat', 'chat', 'explore'];
+
 function normalizeLines(text) {
   return String(text || '')
     .replace(/\r\n/g, '\n')
@@ -11,7 +13,7 @@ function normalizeLines(text) {
 function parseSimpleList(rawText) {
   if (!rawText) return [];
   return rawText
-    .split(/\n/)
+    .split(/[\n,]/)
     .map((line) => line.replace(/^[\-*•]\s*/, '').trim())
     .filter((line) => line.length > 0);
 }
@@ -54,6 +56,17 @@ function parseField(text, label) {
   return match ? String(match[1]).trim() : '';
 }
 
+function normalizeToolList(raw = []) {
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values
+    .flatMap((entry) => parseSimpleList(String(entry || '')))
+    .map((entry) => String(entry).trim().toLowerCase())
+    .map((entry) => entry.replace(/`/g, ''))
+    .map((entry) => entry.replace(/^\W+|\W+$/g, ''))
+    .filter(Boolean)
+    .filter((entry) => ALLOWED_TOOL_ACTIONS.includes(entry));
+}
+
 function parseLinesToProfile(lines) {
   const text = Array.isArray(lines) ? lines.join('\n') : String(lines || '');
   const normalized = normalizeLines(text);
@@ -71,6 +84,9 @@ function parseLinesToProfile(lines) {
   const speech_patterns = parseSimpleList(speechText || speechText.replace(/,/, '\n'));
   const visual_aesthetic = parseSimpleList(visualText || visualText.replace(/,/, '\n'));
   const behavior_constraints = parseSimpleList(behaviorText || behaviorText.replace(/,/, '\n'));
+  const toolAllowText = extractSection(joined, ['Tool permissions', 'Allowed tools', 'Tool policy', 'Tool contract']) || parseField(joined, 'Tool permissions');
+  const toolDenyText = extractSection(joined, ['Forbidden tools', 'Disallowed tools', 'Blocked tools', 'Tool restrictions']) || parseField(joined, 'Forbidden tools');
+  const tool_constraints = parseSimpleList(extractSection(joined, ['Tool constraints', 'Tool constraints & limits']));
 
   return {
     name: nameMatch ? nameMatch[1].trim() : 'Unnamed Agent',
@@ -80,6 +96,11 @@ function parseLinesToProfile(lines) {
     values,
     visual_aesthetic,
     behavior_constraints,
+    tool_contract: {
+      allowed_tools: normalizeToolList(toolAllowText),
+      denied_tools: normalizeToolList(toolDenyText),
+      constraints: parseSimpleList(tool_constraints)
+    },
     raw_markdown: joined
   };
 }
@@ -112,7 +133,12 @@ function normalizeProfile(profile = {}) {
     speech_patterns: Array.isArray(profile.speech_patterns) ? profile.speech_patterns : [],
     values: Array.isArray(profile.values) ? profile.values : [],
     visual_aesthetic: Array.isArray(profile.visual_aesthetic) ? profile.visual_aesthetic : [],
-    behavior_constraints: Array.isArray(profile.behavior_constraints) ? profile.behavior_constraints : []
+    behavior_constraints: Array.isArray(profile.behavior_constraints) ? profile.behavior_constraints : [],
+    tool_contract: {
+      allowed_tools: Array.isArray(profile?.tool_contract?.allowed_tools) ? profile.tool_contract.allowed_tools : [],
+      denied_tools: Array.isArray(profile?.tool_contract?.denied_tools) ? profile.tool_contract.denied_tools : [],
+      constraints: Array.isArray(profile?.tool_contract?.constraints) ? profile.tool_contract.constraints : []
+    }
   };
 }
 
