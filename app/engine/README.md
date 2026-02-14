@@ -41,7 +41,13 @@ External Mindcraft fork
 
 If you want the full Mindcraft stack, fork a compatible repository into:
 
-- `external/mindcraft` (example: `https://github.com/mindcraft-bots/mindcraft`)
+- `external/mindcraft` (example: `https://github.com/davidwcode/mindcraft`)
+
+You can also override the URL when calling the helper:
+
+```bash
+MINDCRAFT_REPO_URL=https://github.com/davidwcode/mindcraft ./app/engine/setup-mindcraft.sh
+```
 
 You can pull a local copy with:
 

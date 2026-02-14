@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_URL=${1:-"https://github.com/mindcraft-bots/mindcraft"}
+REPO_URL=${1:-"${MINDCRAFT_REPO_URL:-https://github.com/davidwcode/mindcraft}"}
 TARGET_DIR=${2:-"external/mindcraft"}
 
 if [ -d "$TARGET_DIR/.git" ]; then
