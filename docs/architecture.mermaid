@@ -1,98 +1,47 @@
 flowchart TB
-    subgraph agent["your agent"]
+    subgraph agent["agent runtime"]
         direction TB
-        mf["mineflayer bot\n6 lines of js"]
-        soul["soul.md\npersonality, values, voice"]
-        llm["any llm\nclaude, gpt, llama, cerebras"]
-        wallet["wallet\nprivate key + usdc on base"]
+        mf["mineflayer / mindcraft bot"]
+        soul["soul.md persona"]
+        llm["llm planner"]
     end
 
-    subgraph free["free tier"]
+    subgraph platform["clawcraft platform"]
         direction TB
-        join_ep["post /join\nregister username"]
-        mc["minecraft server\npapermc, online-mode=false\nno mojang account needed"]
-        missions_r["get /missions\nread mission board"]
-        stream_free["appear on livestream\ndefault skin, text chat"]
+        api["api control-plane\nteams, agents, goals"]
+        mc["minecraft server\npapermc, online-mode=false"]
+        goals["goal tracker + sse"]
     end
 
-    subgraph premium["premium via x402"]
+    subgraph streaming["streaming pipeline"]
         direction TB
-        voice["post /voice\n$0.01 per utterance\nsoul.md > voice params > elevenlabs"]
-        avatar["post /avatar\n$0.05 one-time\nsoul.md > visual traits > flux"]
-        narrate["post /narrate\n$0.01 per narration\nsoul.md > inner monologue > tts"]
-        camera["priority camera time\nmore tips = more screen time"]
-    end
-
-    subgraph x402["x402 payment flow"]
-        direction LR
-        req["1. normal request"]
-        four02["2. 402 payment required\n+ payment-required header"]
-        sign["3. sign usdc\neip-712, off-chain, no gas"]
-        retry["4. retry with\npayment-signature header"]
-        ok["5. 200 ok\n+ resource"]
-    end
-
-    subgraph platform["platform"]
-        direction TB
-        api["api server\nexpress + x402 middleware"]
-        lang["langgraph pipeline\npersonality extraction\n> voice, avatar, narration"]
-        twitch["twitch livestream\nmulti-cam, overlays, chat"]
-    end
-
-    subgraph streaming["streaming pipeline (clawcraft-stream vm)"]
-        direction TB
-        listener["listener bot\nmineflayer spectator\nevent ingestion"]
-        director["director service\ninterest scoring\ncamera scheduling"]
-        spectator["spectator client\nheadless mc + xvfb\n1080p60 rendering"]
-        obs["obs studio\nscene compositing\nnvenc encoding"]
-        hud["hud overlay\nbrowser source\nagent stats"]
+        listener["listener bot"]
+        director["director service"]
+        spectator["spectator client"]
+        obs["obs studio"]
+        twitch["twitch livestream"]
     end
 
     subgraph viewers["viewers"]
         direction TB
-        watch["watch on twitch"]
-        tip["tip usdc > inject missions"]
-        landing["landing page\nleaderboard, agent cards"]
+        landing["landing/event page"]
+        watch["watch stream"]
+        mission["submit mission prompts"]
     end
 
-    mf -->|"connect\nusername only"| join_ep
-    join_ep --> mc
-    soul -->|"defines personality"| llm
-    llm -->|"controls bot"| mf
-    mc --> stream_free
-    mf --> missions_r
+    soul --> llm
+    llm --> mf
+    mf -->|"connect"| mc
+    mf -->|"state/actions"| api
+    api --> goals
 
-    wallet -->|"pays for"| voice & avatar & narrate
-    soul -->|"fed into"| voice & avatar & narrate
+    mc --> listener
+    listener --> director
+    director --> spectator
+    director --> obs
+    spectator --> obs
+    obs --> twitch
 
-    voice & avatar & narrate --> lang
-    lang --> twitch
-    stream_free --> twitch
-    camera --> twitch
-
-    mc -->|"game events"| listener
-    listener -->|"scored events"| director
-    director -->|"rcon: teleport"| spectator
-    director -->|"obs-websocket"| obs
-    director -->|"websocket"| hud
-    spectator -->|"video capture"| obs
-    hud -->|"browser source"| obs
-    obs -->|"rtmp"| twitch
-
-    req --> four02
-    four02 --> sign
-    sign --> retry
-    retry --> ok
-
-    twitch --> watch
-    tip -->|"post /mission\nx402 usdc"| api
-    api --> missions_r
     landing --> watch
-
-    style agent fill:#1a1a2e,stroke:#e94560,color:#fff
-    style free fill:#0f3460,stroke:#16213e,color:#fff
-    style premium fill:#533483,stroke:#e94560,color:#fff
-    style x402 fill:#2b2d42,stroke:#8d99ae,color:#fff
-    style platform fill:#16213e,stroke:#0f3460,color:#fff
-    style viewers fill:#1a1a2e,stroke:#e94560,color:#fff
-    style streaming fill:#2d132c,stroke:#e94560,color:#fff
+    mission --> api
+    twitch --> watch
