@@ -181,53 +181,37 @@ body::before {
 /* ── logo frame ── */
 
 .minecraft-gold-frame {
-  padding: 12px;
+  padding: 16px;
   position: relative;
-  border: 1px solid #4f3c0f;
-  background: rgba(10, 10, 10, 0.22);
+  overflow: hidden;
+  background-image: url("/textures/gold_block.png");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+  box-shadow:
+    0 0 0 2px #4f3c0f,
+    4px 4px 0 rgba(26, 19, 7, 0.6);
   image-rendering: pixelated;
 }
 
-.minecraft-gold-frame::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      #f7e58b 0 2px,
-      #d6ab2f 2px 4px,
-      #b88921 4px 6px,
-      #efcf57 6px 8px
-    ) top / 100% 2px no-repeat,
-    repeating-linear-gradient(
-      90deg,
-      #e6c14e 0 2px,
-      #b88420 2px 4px,
-      #f4dc82 4px 6px,
-      #c89a2d 6px 8px
-    ) bottom / 100% 2px no-repeat,
-    repeating-linear-gradient(
-      0deg,
-      #f8e487 0 2px,
-      #cf9f2a 2px 4px,
-      #b4831f 4px 6px,
-      #efcf5a 6px 8px
-    ) left / 2px 100% no-repeat,
-    repeating-linear-gradient(
-      0deg,
-      #ebc95b 0 2px,
-      #b3811d 2px 4px,
-      #f6de82 4px 6px,
-      #ca992a 6px 8px
-    ) right / 2px 100% no-repeat;
+.minecraft-gold-frame__inner {
+  position: relative;
+  z-index: 2;
+  background: rgba(10, 10, 10, 0.22);
+  border: 2px solid rgba(27, 20, 7, 0.45);
+  padding: 2px;
 }
 
-.minecraft-gold-frame::after {
-  content: '';
+/* animated transparent texture layer over the gold logo frame */
+.logo-strain-overlay-img {
   position: absolute;
-  inset: 2px;
-  border: 1px solid rgba(255, 240, 185, 0.25);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   pointer-events: none;
+  z-index: 1;
+  opacity: 0.34;
+  mix-blend-mode: multiply;
+  filter: saturate(1.15) contrast(1.05);
 }

@@ -1,0 +1,65 @@
+services:
+  # Init container to fix volume permissions before gateway starts
+  openclaw-init:
+    image: alpine/openclaw:latest
+    user: root
+    entrypoint: ["sh", "-c", "chown -R node:node /home/node/.openclaw && echo 'permissions fixed'"]
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+
+  # OpenClaw gateway with ClawCraft skill mounted
+  openclaw-gateway:
+    image: alpine/openclaw:latest
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-skilltest}
+      OPENCLAW_MODEL: anthropic/claude-haiku-4-5-20251001
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+      - ./skills/clawcraft:/home/node/.openclaw/skills/clawcraft
+    ports:
+      - "18789:18789"
+    init: true
+    restart: unless-stopped
+    command: ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789", "--allow-unconfigured"]
+    depends_on:
+      openclaw-init:
+        condition: service_completed_successfully
+
+  # OpenClaw CLI for interactive testing
+  openclaw-cli:
+    image: alpine/openclaw:latest
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-skilltest}
+      BROWSER: echo
+    volumes:
+      - openclaw-config:/home/node/.openclaw
+      - openclaw-workspace:/home/node/.openclaw/workspace
+      - ./skills/clawcraft:/home/node/.openclaw/skills/clawcraft
+    stdin_open: true
+    tty: true
+    init: true
+    entrypoint: ["node", "dist/index.js"]
+    depends_on:
+      - openclaw-gateway
+
+  # First-person POV viewer — open http://localhost:3007 in browser
+  bot-observe:
+    build: .
+    command: ["npm", "run", "start:bot-observe"]
+    environment:
+      MC_HOST: "34.106.239.231"
+      MC_PORT: "25565"
+      BOT_USERNAME: "MeowClaw"
+      VIEWER_PORT: "3007"
+    ports:
+      - "3007:3007"
+
+volumes:
+  openclaw-config:
+  openclaw-workspace:

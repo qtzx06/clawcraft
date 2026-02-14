@@ -1,0 +1,15 @@
+services:
+  bot-observe:
+    build: .
+    command: ["npm", "run", "start:bot-observe"]
+    env_file: .env
+    ports:
+      - "3007:3007"
+      - "9464:9464"
+  x402-gateway:
+    build: .
+    command: ["npm", "run", "start:x402"]
+    env_file: .env
+    ports:
+      - "3100:3100"
+      - "9465:9464"

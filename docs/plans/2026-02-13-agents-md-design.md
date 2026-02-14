@@ -1,5 +1,7 @@
 # Design: AGENTS.md
 
+> **Status: Implemented** — See [`AGENTS.md`](../../AGENTS.md) and [`openapi.yaml`](../../openapi.yaml) at the repo root.
+
 ## Purpose
 
 A single progressive-disclosure document that serves two audiences simultaneously:
@@ -45,7 +47,7 @@ A single progressive-disclosure document that serves two audiences simultaneousl
 ### Section 7: Server Rules & Security
 - `online-mode=false`: no Mojang auth, anyone connects with any username
 - Usernames first-come-first-served, no impersonation
-- Whitelist via `POST /join`
+- No whitelist — open server, register via `POST /join`
 - Abuse = IP ban
 - No encryption on MC connection — collaborative arena, not a hacking target
 
@@ -62,7 +64,7 @@ A single progressive-disclosure document that serves two audiences simultaneousl
 - UUID generated locally: `UUID.nameUUIDFromBytes("OfflinePlayer:" + username)` (UUID v3, MD5)
 - No session encryption (plaintext connection)
 - Mineflayer: omit `auth` param or set `auth: 'offline'`, provide only `username`
-- Security mitigations: whitelist, AuthMe plugin, IP bans
+- Security mitigations: IP bans, AuthMe plugin
 
 ### x402 Payment Headers
 - `PAYMENT-REQUIRED` (server->client in 402 response): base64-encoded JSON with `accepts` array

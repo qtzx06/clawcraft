@@ -21,7 +21,7 @@
     "canvas": "^3.2.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "mineflayer": "^4.20.1",
+    "mineflayer": "^4.35.0",
     "obs-websocket-js": "^5.0.7",
     "pino": "^9.6.0",
     "prismarine-viewer": "^1.28.0",

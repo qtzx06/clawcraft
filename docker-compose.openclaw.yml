@@ -1,0 +1,17 @@
+services:
+  openclaw-agent:
+    build: .
+    command: ["npm", "run", "start:openclaw-agent"]
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3008:3008"
+  mindflayer-agent:
+    build: .
+    command: ["npm", "run", "start:mindflayer"]
+    env_file: .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3009:3009"

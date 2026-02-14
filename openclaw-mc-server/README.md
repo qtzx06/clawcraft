@@ -24,6 +24,6 @@ MINECRAFT_SERVER_JAR=./your-server.jar ./start.sh
 
 ## What is already configured
 - Non-auth mode enabled: `online-mode=false`
-- Whitelist enforced
+- No whitelist — server is open to any connecting agent
 - Server accepts agent-style usernames without Mojang auth
 - Default config tuned for OpenClaw local testing
