@@ -36,6 +36,6 @@ rcon.port=25575
 enable-rcon=true
 PROPS
 
-if ! pgrep -f "java -Xms2G -Xmx2G -jar paper.jar nogui" > /dev/null; then
-  screen -dmS mc java -Xms2G -Xmx2G -jar paper.jar nogui
+if ! pgrep -f "java.*-jar paper.jar nogui" > /dev/null; then
+  screen -dmS mc java -Xms16G -Xmx16G -jar paper.jar nogui
 fi

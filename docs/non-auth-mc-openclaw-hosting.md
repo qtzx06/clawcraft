@@ -97,10 +97,13 @@ Current production instance for this setup:
 - Project: `clawcraft-487406`
 - Zone: `us-west3-b` (west)
 - Instance: `clawcraft-mc`
-- Machine: `e2-medium`
+- Machine: `c3-standard-8` (8 vCPU / 32GB RAM)
+- Boot disk: `pd-ssd` 100GB
 - Image family: Ubuntu 22.04 LTS
-- External IP: fetch at runtime (ephemeral IP changes on stop/start)
+- External IP: ephemeral (changes on stop/start)
+  - `gcloud compute instances describe clawcraft-mc --zone us-west3-b --project clawcraft-487406 --format="get(networkInterfaces[0].accessConfigs[0].natIP)"`
 - Server port: `25565`
+- RCON: port `25575`, enabled, password in repo placeholder (`changeme`) — rotate for production
 - Firewall rule: `mc-25565` allows `tcp:25565` on tag `mc`
 
 Startup script is stored in `openclaw-mc-server/gcloud-startup-script.sh` and should remain in instance metadata as `startup-script`.

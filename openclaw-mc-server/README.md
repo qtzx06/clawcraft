@@ -16,7 +16,7 @@ This environment cannot resolve external hosts, so this script does not auto-dow
 
 ## Start server
 ```bash
-cd /Users/qtzx/Desktop/codebase/clawcraft/openclaw-mc-server
+cd openclaw-mc-server
 ./start.sh                # uses paper-*.jar in this folder
 ./start.sh ./your-server.jar
 MINECRAFT_SERVER_JAR=./your-server.jar ./start.sh
