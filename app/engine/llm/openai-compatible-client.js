@@ -1,11 +1,15 @@
 const { setTimeout: wait } = require('timers/promises');
 
 const DEFAULT_TEMPERATURE = 0.4;
-const FALLBACK_ACTIONS = ['mine', 'build', 'craft', 'explore', 'fight', 'eat', 'chat'];
+const PLAN_KINDS = ['mine', 'build', 'craft', 'explore', 'fight', 'eat', 'chat'];
 
 function parseQuantity(text) {
   const match = String(text || '').match(/\b(\d+)\b/);
   return match ? Number(match[1]) : 1;
+}
+
+function normalizeKind(raw) {
+  return String(raw || '').toLowerCase().trim();
 }
 
 function cleanJson(input) {
@@ -19,6 +23,29 @@ function cleanJson(input) {
   } catch (_e) {
     return null;
   }
+}
+
+function normalizeToolContract(raw = {}) {
+  const allowed = Array.isArray(raw.allowed_tools) ? raw.allowed_tools : [];
+  const denied = Array.isArray(raw.denied_tools) ? raw.denied_tools : [];
+  const normalizedAllowed = allowed.map(normalizeKind).filter((value) => PLAN_KINDS.includes(value));
+  const normalizedDenied = denied.map(normalizeKind).filter((value) => PLAN_KINDS.includes(value));
+
+  const computedAllowed = normalizedAllowed.length
+    ? normalizedAllowed.filter((kind) => !normalizedDenied.includes(kind))
+    : PLAN_KINDS.filter((kind) => !normalizedDenied.includes(kind));
+
+  const safeAllowed = computedAllowed.length > 0 ? computedAllowed : ['chat'];
+  return {
+    allowed_tools: safeAllowed,
+    denied_tools: normalizedDenied.filter((kind) => !normalizedAllowed.includes(kind)),
+    constraints: Array.isArray(raw.constraints) ? raw.constraints : []
+  };
+}
+
+function buildSafeFallback(allowed = []) {
+  const safe = Array.isArray(allowed) && allowed.length > 0 ? allowed : PLAN_KINDS;
+  return safe.includes('chat') ? 'chat' : safe[0];
 }
 
 class OpenAICompatibleClient {
@@ -84,16 +111,54 @@ class OpenAICompatibleClient {
 
   _sanitizeAction(raw) {
     if (typeof raw === 'string') {
-      const normalized = raw.toLowerCase();
-      return FALLBACK_ACTIONS.includes(normalized) ? normalized : 'explore';
+      const normalized = normalizeKind(raw);
+      return PLAN_KINDS.includes(normalized) ? normalized : 'chat';
     }
 
     if (raw && typeof raw === 'object') {
-      const candidate = String(raw.kind || '').toLowerCase();
-      return FALLBACK_ACTIONS.includes(candidate) ? candidate : 'explore';
+      const candidate = normalizeKind(raw.kind);
+      return PLAN_KINDS.includes(candidate) ? candidate : 'chat';
     }
 
-    return 'explore';
+    return 'chat';
+  }
+
+  _sanitizeNarration(text) {
+    return String(text || '').slice(0, 220);
+  }
+
+  _coercePlanWithPolicy(rawPlan, policy = {}) {
+    const contract = normalizeToolContract(policy);
+    const requested = this._sanitizeAction(rawPlan?.kind || rawPlan);
+    const allowed = contract.allowed_tools;
+    const blocked = !allowed.includes(requested);
+    const fallbackKind = buildSafeFallback(allowed);
+    const chosenKind = blocked ? fallbackKind : requested;
+    const details = rawPlan && typeof rawPlan === 'object' && rawPlan.details && typeof rawPlan.details === 'object'
+      ? rawPlan.details
+      : {};
+
+    return {
+      kind: chosenKind,
+      details,
+      narration: this._sanitizeNarration(
+        blocked
+          ? `${rawPlan?.narration || `I will ${chosenKind} now.`} (policy constrained to ${chosenKind})`
+          : rawPlan?.narration || `I will ${chosenKind} now.`
+      ),
+      forceComplete: blocked ? false : Boolean(rawPlan?.forceComplete),
+      policy: {
+        requested,
+        allowed,
+        denied: contract.denied_tools,
+        constraints: contract.constraints,
+        blocked
+      }
+    };
+  }
+
+  _fallbackWithPolicy(mission, policy = {}) {
+    return this._coercePlanWithPolicy(this._heuristicAction(mission), policy);
   }
 
   async _callRemote(messages) {
@@ -135,14 +200,22 @@ class OpenAICompatibleClient {
     }
   }
 
-  async planAction({ mission = {}, botState = {}, gameState = {}, personality = {} } = {}) {
+  async planAction({ mission = {}, botState = {}, gameState = {}, personality = {}, policy = {} } = {}) {
+    const policyContract = normalizeToolContract(policy);
+    const allowed = policyContract.allowed_tools;
+    const denied = policyContract.denied_tools;
+    const constraints = policyContract.constraints;
+
     const prompt = [
       {
         role: 'system',
         content: `You are a Minecraft bot policy planner.
 Return strict JSON with this shape:
 { "kind":"mine|build|craft|fight|eat|chat|explore", "details":{}, "narration":"...", "forceComplete":false }
-Only use kinds listed, and keep details minimal.`
+Use only kinds in policy.allowed_tools and keep details minimal.
+If uncertain, prefer chat or explore.
+Do not return any kind in policy.denied_tools.
+Policy constraints: ${constraints.length > 0 ? constraints.join('; ') : 'none'}`
       },
       {
         role: 'user',
@@ -150,6 +223,11 @@ Only use kinds listed, and keep details minimal.`
           personality,
           gameState,
           botState,
+          policy: {
+            allowed_tools: allowed,
+            denied_tools: denied,
+            constraints: constraints
+          },
           mission: mission.task ? mission : {
             task: 'No mission'
           }
@@ -160,19 +238,17 @@ Only use kinds listed, and keep details minimal.`
     try {
       const planned = await this._callRemote(prompt);
       if (!planned || typeof planned !== 'object') {
-        return this._heuristicAction(mission);
+        return this._fallbackWithPolicy(mission, policyContract);
       }
 
       const plannedKind = this._sanitizeAction(planned.kind || planned);
-      const details = planned.details && typeof planned.details === 'object' ? planned.details : {};
-      return {
-        kind: plannedKind,
-        details,
-        narration: planned.narration || `I will ${plannedKind} now.`,
-        forceComplete: Boolean(planned.forceComplete)
-      };
+      if (!allowed.includes(plannedKind)) {
+        return this._coercePlanWithPolicy(planned, policyContract);
+      }
+
+      return this._coercePlanWithPolicy(planned, policyContract);
     } catch (_error) {
-      return this._heuristicAction(mission);
+      return this._fallbackWithPolicy(mission, policyContract);
     }
   }
 
