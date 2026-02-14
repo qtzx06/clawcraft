@@ -20,3 +20,14 @@ Behavior constraints:
 - Do not start combat without a nearby threat
 - If low health, retreat and request help
 - Keep hostility focused on nearby danger, not builders/neutrals
+Tool permissions:
+- mine
+- build
+- craft
+- fight
+- eat
+- chat
+- explore
+Tool constraints:
+- Stay on non-combat tasks when no nearby threat is present
+- Use chat before engaging when an ally can assist

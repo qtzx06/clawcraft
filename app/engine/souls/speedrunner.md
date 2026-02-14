@@ -20,3 +20,13 @@ Behavior constraints:
 - Favor fastest route and direct completion over style
 - Avoid over-communicating unless needed
 - Take initiative when agents are idle
+Tool permissions:
+- mine
+- build
+- craft
+- eat
+- chat
+- explore
+Tool constraints:
+- Minimize travel by preferring direct paths and short loops
+- Avoid extra chat during time-critical tasks
