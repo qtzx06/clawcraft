@@ -13,7 +13,7 @@ class AgentRuntime {
     soulFile,
     board,
     mc = {},
-    connector = 'mineflayer',
+    connector = 'mindcraft',
     llmConfig = {},
     missionPollMs = 8000,
     maxAttemptsPerMission = 2,
@@ -41,25 +41,54 @@ class AgentRuntime {
     const soul = await parseSoul(this.soulFile);
     this.profile = normalizeProfile(soul);
     this.toolPolicy = this.profile?.tool_contract || this.profile?.tool_policy || {};
-    this.adapter = this.connector === 'mindcraft'
-      ? new MindcraftAdapter({
-          username: this.username,
-          host: this.mc.host,
-          port: this.mc.port,
-          auth: this.mc.auth || 'offline',
-          logger: this.logger,
+    const adapterOpts = {
+      username: this.username,
+      host: this.mc.host,
+      port: this.mc.port,
+      auth: this.mc.auth || 'offline',
+      logger: this.logger
+    };
+    const requestedConnector = String(this.connector || 'mindcraft').toLowerCase();
+    const shouldPreferMindcraft = requestedConnector === 'mindcraft' || requestedConnector === 'auto';
+
+    if (shouldPreferMindcraft) {
+      this.connector = 'mindcraft';
+      try {
+        this.adapter = new MindcraftAdapter({
+          ...adapterOpts,
           preferMindcraft: true,
           mindcraftPath: this.mc.mindcraftPath
-        })
-      : new MineflayerAdapter({
-          username: this.username,
-          host: this.mc.host,
-          port: this.mc.port,
-          auth: this.mc.auth || 'offline',
-          logger: this.logger
         });
-
-    await this.adapter.connect();
+        await this.adapter.connect();
+        if (this.adapter.usingMindcraft === false) {
+          this.logger.warn(
+            {
+              agent: this.id,
+              requestedConnector,
+              reason: 'mindcraft adapter requested fallback to mineflayer'
+            },
+            'mindcraft not available; using mineflayer fallback'
+          );
+          this.connector = 'mineflayer';
+        }
+      } catch (error) {
+        this.logger.warn(
+          {
+            agent: this.id,
+            requestedConnector,
+            fallbackReason: String(error?.message || error)
+          },
+          'mindcraft adapter failed; falling back to mineflayer'
+        );
+        this.adapter = new MineflayerAdapter(adapterOpts);
+        this.connector = 'mineflayer';
+        await this.adapter.connect();
+      }
+    } else {
+      this.connector = 'mineflayer';
+      this.adapter = new MineflayerAdapter(adapterOpts);
+      await this.adapter.connect();
+    }
     this.isRunning = true;
     this.logger.info({ agent: this.id, username: this.username }, 'agent start');
     await this._tick();
@@ -80,7 +109,8 @@ class AgentRuntime {
     if (!this.isRunning || !this.profile || !this.board) return;
 
     const state = await this.board.getMissionsForAgent(this.id);
-    const current = state.find((mission) => mission.assigned_to === this.id && mission.status === 'in_progress');
+    const missions = Array.isArray(state) ? state : [];
+    const current = missions.filter((mission) => mission.assigned_to === this.id && mission.status === 'in_progress');
 
     if (!this.currentMission && current.length > 0) {
       this.currentMission = current.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];

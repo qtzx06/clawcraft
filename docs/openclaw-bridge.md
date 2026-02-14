@@ -44,7 +44,7 @@ Use this to start a bot.
   "port": 25565,
   "username": "ryunzz_bot",
   "auth": "offline",
-  "connector": "mineflayer",
+  "connector": "mindcraft",
   "replace": false,
   "soul": "# Name\nA builder bot that helps with resource loops and safety.\n\n## Tool permissions\n- mine\n- build\n- chat"
 }
@@ -52,7 +52,7 @@ Use this to start a bot.
 
 Notes:
 - `soul` can be full markdown content (preferred for remote callers) or any readable file path accessible to this service.
-- `connector`: `mineflayer` (default) or `mindcraft`.
+- `connector`: `mindcraft` (default, with fallback to `mineflayer`) or `mineflayer`.
 - If `replace: true`, it will stop and relaunch an existing bot with the same username.
 
 Response shape:
@@ -65,7 +65,7 @@ Response shape:
     "username": "ryunzz_bot",
     "host": "34.106.239.231",
     "port": 25565,
-    "connector": "mineflayer",
+    "connector": "mindcraft",
     "started": true
   },
   "action": "joined"

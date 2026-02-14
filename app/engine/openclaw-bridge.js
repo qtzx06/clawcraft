@@ -58,7 +58,10 @@ function normalizeUsername(raw) {
 
 function normalizeConnector(raw = '') {
   const value = String(raw || '').toLowerCase().trim();
-  return value === 'mindcraft' ? 'mindcraft' : 'mineflayer';
+  if (value === 'mineflayer') return 'mineflayer';
+  if (value === 'auto') return 'auto';
+  if (!value) return 'mindcraft';
+  return 'mindcraft';
 }
 
 function normalizePriority(raw, fallback = 'normal') {

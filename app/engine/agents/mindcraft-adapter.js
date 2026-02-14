@@ -90,10 +90,12 @@ class MindcraftAdapter extends MineflayerAdapter {
     this.mindcraftSocket = null;
     this.mindcraftSocketConnected = false;
     this.mindcraftRoot = null;
+    this.usingMindcraft = false;
   }
 
   async connect() {
     if (!this.preferMindcraft || !this.mindcraftReady) {
+      this.usingMindcraft = false;
       return super.connect();
     }
 
@@ -122,6 +124,7 @@ class MindcraftAdapter extends MineflayerAdapter {
           if (!response || response.success !== true) {
             throw new Error(response?.error || 'createAgent did not return success');
           }
+          this.usingMindcraft = true;
 
           this.mindcraftClient = {
             settings,
@@ -168,6 +171,7 @@ class MindcraftAdapter extends MineflayerAdapter {
         }
       });
     } catch (_error) {
+      this.usingMindcraft = false;
       return super.connect();
     }
   }
