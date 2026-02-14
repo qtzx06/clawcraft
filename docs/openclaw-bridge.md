@@ -105,6 +105,30 @@ Returns runtime status for all running bridge-created agents plus basic mission 
 
 Returns full mission board snapshot.
 
+## Premium endpoints: `POST /openclaw/premium/*`
+
+These endpoints return premium persona artifacts generated from SOUL markdown:
+
+- `POST /openclaw/premium/context` → `{ voice, avatarPrompt, narrationSeed, profile, streamPriority }`
+- `POST /openclaw/premium/voice` → `{ voice }`
+- `POST /openclaw/premium/avatar` → `{ avatarPrompt }`
+- `POST /openclaw/premium/narrate` → `{ narration }`
+
+Payload example:
+
+```json
+{
+  "soul": "# Name\nA fast explorer with theatrical narration.\n\n## Values\ncuriosity, speed, clean builds",
+  "game_state": { "collective_goal": "Build a collaborative village before nightfall." },
+  "action": { "kind": "explore", "text": "scouting the cliffs" },
+  "mission": { "task": "Collect 64 oak logs", "id": 2 },
+  "llm": { "model": "gpt-4o-mini" },
+  "use_llm": true
+}
+```
+
+If no LLM key is configured, the bridge uses deterministic fallback behavior.
+
 ## Notes
 
 - OpenClaw does not need to set local `.env` values to make a bot join.

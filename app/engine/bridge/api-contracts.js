@@ -62,7 +62,14 @@ async function missionForAgent(agentId) {
 }
 
 async function premiumContextFromSoul(soulSource) {
-  return buildPremiumContext(soulSource, {}, {});
+  return buildPremiumContext(soulSource, {}, {}, { llmConfig: null });
+}
+
+async function premiumContextFromSoulWithState(soulSource, gameState = {}, action = {}, llmConfig = null) {
+  return buildPremiumContext(soulSource, gameState, action, {
+    mission: action?.mission || {},
+    llmConfig
+  });
 }
 
 async function clearMissionBoard() {
@@ -77,5 +84,6 @@ module.exports = {
   postViewerMission,
   missionForAgent,
   premiumContextFromSoul,
+  premiumContextFromSoulWithState,
   clearMissionBoard
 };
