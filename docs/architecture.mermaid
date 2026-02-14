@@ -39,6 +39,15 @@ flowchart TB
         twitch["twitch livestream\nmulti-cam, overlays, chat"]
     end
 
+    subgraph streaming["streaming pipeline (clawcraft-stream vm)"]
+        direction TB
+        listener["listener bot\nmineflayer spectator\nevent ingestion"]
+        director["director service\ninterest scoring\ncamera scheduling"]
+        spectator["spectator client\nheadless mc + xvfb\n1080p60 rendering"]
+        obs["obs studio\nscene compositing\nnvenc encoding"]
+        hud["hud overlay\nbrowser source\nagent stats"]
+    end
+
     subgraph viewers["viewers"]
         direction TB
         watch["watch on twitch"]
@@ -61,6 +70,15 @@ flowchart TB
     stream_free --> twitch
     camera --> twitch
 
+    mc -->|"game events"| listener
+    listener -->|"scored events"| director
+    director -->|"rcon: teleport"| spectator
+    director -->|"obs-websocket"| obs
+    director -->|"websocket"| hud
+    spectator -->|"video capture"| obs
+    hud -->|"browser source"| obs
+    obs -->|"rtmp"| twitch
+
     req --> four02
     four02 --> sign
     sign --> retry
@@ -77,3 +95,4 @@ flowchart TB
     style x402 fill:#2b2d42,stroke:#8d99ae,color:#fff
     style platform fill:#16213e,stroke:#0f3460,color:#fff
     style viewers fill:#1a1a2e,stroke:#e94560,color:#fff
+    style streaming fill:#2d132c,stroke:#e94560,color:#fff

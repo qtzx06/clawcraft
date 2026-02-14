@@ -17,7 +17,7 @@ This is ideal for streaming or demo environments where low friction is preferred
 
 - Use modern Paper for best behavior and plugin compatibility: Java 17 compatible builds are preferred.
 - Keep protocol version aligned with your hosted `mineflayer` version to avoid bot handshake issues.
-- Start with no extra player auth plugins; enforce trust via whitelist/IP controls.
+- Start with no extra player auth plugins; enforce trust via network controls and command policies.
 
 ## Server properties (recommended baseline)
 
@@ -26,8 +26,6 @@ Use these values in `server.properties` and tune per load:
 ```properties
 motd=OpenClaw Arena - Non-Auth
 online-mode=false
-white-list=true
-enforce-whitelist=true
 spawn-protection=0
 max-players=20
 view-distance=8
@@ -53,12 +51,11 @@ Recommended network/runtime defaults:
 
 1. Install Java 17 and run server software once to generate defaults.
 2. Set `online-mode=false` in `server.properties`.
-3. Turn on whitelist and add controlled operator/admin/player entries.
-4. Decide identity policy:
+3. Decide identity policy:
    - Stable username per agent for persistent behavior.
    - Optional mapping table in your join service for abuse tracing.
-5. Launch server with logging enabled and rotate logs.
-6. Health-check with a bot connecting using offline auth.
+4. Launch server with logging enabled and rotate logs.
+5. Health-check with a bot connecting using offline auth.
 
 ## Connecting an OpenClaw agent
 
@@ -72,14 +69,13 @@ Recommended network/runtime defaults:
 
 ## Security hardening (important in non-auth mode)
 
-1. Keep whitelist enabled for all public sessions.
-2. Restrict RCON to trusted private subnet.
-3. Add bot/abuse protections (chat rate limiting, simple command allowlists, IP bans).
-4. Log and rotate player connect/disconnect events.
-5. Prefer plugin-level allowlists and role-based restrictions for destructive commands.
-6. Use plugin or proxy-level filtering for mission endpoints and admin commands.
-7. If this is public-facing, treat DDoS/reconnaissance as expected:
-   - keep an allowlist / narrowed source-range on `mc-25565` if possible.
+1. Restrict RCON to trusted private subnet.
+2. Add bot/abuse protections (chat rate limiting, simple command allowlists, IP bans).
+3. Log and rotate player connect/disconnect events.
+4. Prefer plugin-level allowlists and role-based restrictions for destructive commands.
+5. Use plugin or proxy-level filtering for mission endpoints and admin commands.
+6. If this is public-facing, treat DDoS/reconnaissance as expected:
+   - keep a narrowed source-range on `mc-25565` if possible.
    - add `--rate-limit` controls in network stack or a reverse-proxy tunneling layer for your own gateway path.
    - monitor `Connections` and `Dropped` metrics in Google Cloud Monitoring and alert on spikes.
    - rotate secrets (`rcon.password`) and avoid committing real values.
@@ -89,6 +85,16 @@ Recommended network/runtime defaults:
 - Expose mission flow through your OpenClaw services (`/missions`, `/join`, etc.) and keep server-side enforcement in front of bot behavior.
 - Treat non-auth mode as part of the platform contract: identity is social + operational, not cryptographically authenticated at Minecraft protocol level.
 - If you need premium-gated features, implement payment/mission gating at API level, not via Minecraft auth mode.
+
+### Streaming infrastructure bots
+
+The streaming pipeline requires two additional whitelisted bots:
+
+- `whitelist add SpectatorCam` — headless spectator client for stream camera (needs op for `/tp` and `/spectate`)
+- `whitelist add DirectorEye` — listener bot for event ingestion (no op needed)
+- `op SpectatorCam` — required for camera teleportation commands
+
+These bots connect from the `clawcraft-stream` GPU VM. See `stream-server/README.md` for full streaming setup.
 
 ## GCP Instance Context (clawcraft-487406)
 
@@ -124,3 +130,9 @@ Use this runbook for server operations:
 - Open server folder for troubleshooting:
   - `/opt/minecraft`
   - `paper.jar`, `eula.txt`, and `server.properties`
+
+Restart Paper after config updates:
+
+1. SSH into the VM and run:
+   - `screen -S mc -X stuff "stop$(printf '\\r')"`
+   - `cd /opt/minecraft && screen -dmS mc ./start.sh`
