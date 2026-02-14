@@ -1,7 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { MissionBoard } = require('../mission-board/mission-board');
-const { parseSoul } = require('../persona/persona-parser');
 const { buildPremiumContext } = require('../persona/persona-graph');
 
 let boardSingleton = null;
@@ -63,8 +62,7 @@ async function missionForAgent(agentId) {
 }
 
 async function premiumContextFromSoul(soulSource) {
-  const profile = await parseSoul(soulSource);
-  return buildPremiumContext(profile, {}, {});
+  return buildPremiumContext(soulSource, {}, {});
 }
 
 async function clearMissionBoard() {
