@@ -179,7 +179,9 @@ class MissionBoard {
 
   async getOpenMissions() {
     return this._withLock(async () => {
-      return [...this.state.missions, ...this.state.viewer_missions]
+      const missions = Array.isArray(this.state?.missions) ? this.state.missions : [];
+      const viewerMissions = Array.isArray(this.state?.viewer_missions) ? this.state.viewer_missions : [];
+      return [...missions, ...viewerMissions]
         .filter((m) => m.status === 'open')
         .sort(sortMissions)
         .map((mission, index) => ({ ...mission, rank: index + 1 }));
@@ -188,7 +190,9 @@ class MissionBoard {
 
   async getMissionsForAgent(agentId) {
     return this._withLock(async () => {
-      const filtered = [...this.state.missions, ...this.state.viewer_missions].filter(
+      const missions = Array.isArray(this.state?.missions) ? this.state.missions : [];
+      const viewerMissions = Array.isArray(this.state?.viewer_missions) ? this.state.viewer_missions : [];
+      const filtered = [...missions, ...viewerMissions].filter(
         (m) => m.assigned_to === agentId
       );
       return filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
@@ -196,7 +200,9 @@ class MissionBoard {
   }
 
   async _findMission(missionId) {
-    const all = [...this.state.missions, ...this.state.viewer_missions];
+    const missions = Array.isArray(this.state?.missions) ? this.state.missions : [];
+    const viewerMissions = Array.isArray(this.state?.viewer_missions) ? this.state.viewer_missions : [];
+    const all = [...missions, ...viewerMissions];
     const index = all.findIndex((item) => String(item.id) === String(missionId));
     if (index === -1) return null;
     return { mission: all[index], fromMissions: index < this.state.missions.length ? 'missions' : 'viewer_missions', index };
