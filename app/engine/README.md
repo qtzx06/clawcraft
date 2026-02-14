@@ -34,7 +34,14 @@ What this implementation includes
 
 - `app/engine/mission-board/mission-board.js`: shared JSON mission board service.
 - `app/engine/persona/persona-parser.js`: SOUL.md parser.
-- `app/engine/persona/persona-graph.js`: extracted personality -> voice/avatar/narration primitives.
+- `app/engine/persona/persona-graph.js`: legacy premium context facade used by engine routes.
+- `app/engine/langgraph/`: node graph for SOUL persona-to-actions extraction.
+  - `pipeline.js`: orchestrates nodes and dependency execution order.
+  - `nodes/personality-extraction-node.js`: parses/normalizes SOUL.md profile.
+  - `nodes/voice-node.js`: produces TTS voice profile.
+  - `nodes/avatar-node.js`: produces avatar/overlay prompt.
+  - `nodes/narration-node.js`: creates in-character narration seed.
+  - `nodes/stream-priority-node.js`: scores camera priority for Twitch feed.
 - `app/engine/llm/openai-compatible-client.js`: optional LLM policy planner.
 - `app/engine/agents/*`: Mineflayer + optional Mindcraft shim adapters.
 - `app/engine/bridge/api-contracts.js`: pure functions for API integration.

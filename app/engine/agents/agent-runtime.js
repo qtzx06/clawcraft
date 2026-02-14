@@ -116,7 +116,7 @@ class AgentRuntime {
     const nextAttempts = attempts + 1;
     this.attemptCounts[missionId] = nextAttempts;
 
-    const premiumContext = buildPremiumContext(this.profile, gameState, {
+    const premiumContext = await buildPremiumContext(this.profile, gameState, {
       kind: enforcedPlan.kind,
       text: enforcedPlan.narration
     });

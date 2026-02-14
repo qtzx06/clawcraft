@@ -1,111 +1,44 @@
-function clamp(value, min, max) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return min;
-  return Math.min(Math.max(value, min), max);
-}
+const { parseSoul, normalizeProfile } = require('./persona-parser');
+const { runPremiumPersonaGraph } = require('../langgraph');
+const {
+  buildVoiceParams,
+  buildAvatarPrompt,
+  buildNarrationSeed
+} = require('./premium-primitives');
 
-const ARCHETYPE_PRESETS = {
-  builder: {
-    pitch: 1.04,
-    speed: 0.94,
-    accent: 'calm'
-  },
-  fighter: {
-    pitch: 0.82,
-    speed: 1.12,
-    accent: 'gritty'
-  },
-  explorer: {
-    pitch: 1.0,
-    speed: 1.02,
-    accent: 'bright'
-  },
-  philosopher: {
-    pitch: 0.97,
-    speed: 0.96,
-    accent: 'measured'
-  },
-  speedrunner: {
-    pitch: 1.08,
-    speed: 1.18,
-    accent: 'urgent'
+function normalizeProfileInput(profile) {
+  if (typeof profile === 'string') {
+    return parseSoul(profile);
   }
-};
-
-const TONE_PRESETS = {
-  bold: { pitch: +0.08, speed: +0.03 },
-  optimistic: { pitch: +0.04, speed: +0.02 },
-  reflective: { pitch: -0.03, speed: -0.06 },
-  playful: { speed: +0.05 },
-  aggressive: { pitch: +0.06, speed: +0.08 },
-  calm: { pitch: -0.02, speed: -0.05 },
-  dramatic: { pitch: +0.09, speed: +0.02 },
-  energetic: { speed: +0.1 }
-};
-
-function profileToKey(profile = {}, key, fallback = '') {
-  const raw = String(profile[key] || profile[key.toLowerCase()] || profile.title || fallback || '').toLowerCase();
-  const first = raw.split('\n')[0].trim();
-  return first.split(/[^a-z]/i).filter(Boolean).shift() || fallback.toLowerCase();
+  return profile && typeof profile === 'object' ? profile : {};
 }
 
-function buildVoiceParams(profile = {}) {
-  const archetypeKey = profileToKey(profile, 'archetype', 'builder');
-  const toneKey = profileToKey(profile, 'tone', '');
+async function buildPremiumContext(profile = {}, gameState = {}, action = {}) {
+  const sourceProfile = await normalizeProfileInput(profile);
+  const normalizedProfile = normalizeProfile(sourceProfile);
+  const normalizedState = gameState && typeof gameState === 'object' ? gameState : {};
+  const normalizedAction = action && typeof action === 'object' ? action : {};
 
-  const preset = ARCHETYPE_PRESETS[archetypeKey] || ARCHETYPE_PRESETS.builder;
-  const tone = TONE_PRESETS[toneKey] || TONE_PRESETS[profile.tone?.toLowerCase()] || {};
+  const graphResult = await runPremiumPersonaGraph({
+    profile: normalizedProfile,
+    gameState: normalizedState,
+    action: normalizedAction
+  });
+  const resolvedProfile = graphResult.profile || {};
 
   return {
-    pitch: clamp(preset.pitch + (tone.pitch || 0), 0.75, 1.35),
-    speed: clamp(preset.speed + (tone.speed || 0), 0.8, 1.4),
-    accent: preset.accent,
-    vocal_style: profileToKey(profile, 'tone', 'steady') || 'steady',
-    prohibited_terms: profile.behavior_constraints || []
-  };
-}
-
-function buildAvatarPrompt(profile = {}) {
-  const base = `Minecraft-compatible avatar for ${profile.name || 'an agent'}.
-Tone-driven persona: ${profile.tone || 'steady'}.
-Archetype: ${profile.archetype || 'Builder'}.`;
-
-  const styleBits = profile.visual_aesthetic && profile.visual_aesthetic.length > 0
-    ? profile.visual_aesthetic.join(', ')
-    : 'minimal utility armor and clean geometric textures';
-
-  const values = profile.values && profile.values.length > 0
-    ? profile.values.join(', ')
-    : 'cooperative mining, structure, and expressive motion';
-
-  return `${base}
-Visual traits: ${styleBits}.
-Personality cues: ${values}.
-Render as a stylized cube-body figure in a game-consistent palette.`;
-}
-
-function buildNarrationSeed(profile = {}, gameState = {}, action = {}) {
-  const actor = profile.name || 'agent';
-  const goal = gameState.collective_goal || 'the shared village build';
-  const actionText = action && action.text ? String(action.text) : `working on ${action.kind || 'an assigned mission'}`;
-  return `${actor} is narrating in-character.
-Current goal: ${goal}.
-Latest intent: ${actionText}.
-Tone style: ${profile.tone || 'steady'} with ${profile.archetype || 'builder'} restraint.
-`;
-}
-
-function buildPremiumContext(profile = {}, gameState = {}, action = {}) {
-  const normalized = typeof profile === 'object' && profile ? profile : {};
-  return {
-    voice: buildVoiceParams(normalized),
-    avatarPrompt: buildAvatarPrompt(normalized),
-    narrationSeed: buildNarrationSeed(normalized, gameState, action),
+    voice: graphResult.voice,
+    avatarPrompt: graphResult.avatarPrompt,
+    narrationSeed: graphResult.narrationSeed,
     profile: {
-      archetype: normalized.archetype || 'Builder',
-      tone: normalized.tone || 'steady',
-      values: normalized.values || [],
-      visual_aesthetic: normalized.visual_aesthetic || [],
-      constraints: normalized.behavior_constraints || []
+      ...(graphResult.profile || {
+        archetype: normalizedProfile.archetype || 'Builder',
+        tone: normalizedProfile.tone || 'steady',
+        values: normalizedProfile.values || [],
+        visual_aesthetic: normalizedProfile.visual_aesthetic || [],
+        behavior_constraints: normalizedProfile.behavior_constraints || []
+      }),
+      constraints: resolvedProfile.behavior_constraints || []
     }
   };
 }
