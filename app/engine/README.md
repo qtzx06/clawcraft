@@ -39,17 +39,15 @@ What this implementation includes
 External Mindcraft fork
 -----------------------
 
-If you want the full Mindcraft stack, fork a compatible repository into:
+If you want the full Mindcraft stack, initialize the submodule:
 
-- `external/mindcraft` (example: `https://github.com/davidwcode/mindcraft`)
+- `git submodule update --init --recursive`
 
-You can also override the URL when calling the helper:
+This checks out `external/mindcraft` from:
 
-```bash
-MINDCRAFT_REPO_URL=https://github.com/davidwcode/mindcraft ./app/engine/setup-mindcraft.sh
-```
+- `https://github.com/davidwcode/mindcraft`
 
-You can pull a local copy with:
+You can also pull a local copy manually with:
 
 ```bash
 ./app/engine/setup-mindcraft.sh

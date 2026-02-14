@@ -9,6 +9,10 @@ if [ -d "$TARGET_DIR/.git" ]; then
   exit 0
 fi
 
-git clone "$REPO_URL" "$TARGET_DIR"
-echo "Mindcraft checkout created at $TARGET_DIR"
+if [ -f ".gitmodules" ]; then
+  git submodule update --init --recursive "$TARGET_DIR"
+else
+  git clone "$REPO_URL" "$TARGET_DIR"
+  echo "Mindcraft checkout created at $TARGET_DIR"
+fi
 echo "Set MINDCRAFT_PATH=$TARGET_DIR when connecting an agent"

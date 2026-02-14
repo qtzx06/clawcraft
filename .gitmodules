@@ -1,0 +1,3 @@
+[submodule "external/mindcraft"]
+	path = external/mindcraft
+	url = https://github.com/davidwcode/mindcraft
