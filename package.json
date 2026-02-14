@@ -1,0 +1,19 @@
+{
+  "name": "clawcraft-observability",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mineflayer bot observability and POV viewer for ClawCraft",
+  "scripts": {
+    "start:bot-observe": "node app/bot-observe.js",
+    "check:bot-observe": "node --check app/bot-observe.js"
+  },
+  "dependencies": {
+    "canvas": "^3.2.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mineflayer": "^4.20.1",
+    "pino": "^9.6.0",
+    "prismarine-viewer": "^1.28.0",
+    "prom-client": "^15.1.3"
+  }
+}
