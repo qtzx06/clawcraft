@@ -6,8 +6,10 @@
   "scripts": {
     "start:bot-observe": "node app/bot-observe.js",
     "start:engine": "node app/engine/run-fleet.js",
+    "start:openclaw-bridge": "node app/engine/openclaw-bridge.js",
     "check:bot-observe": "node --check app/bot-observe.js",
-    "check:engine": "node --check app/engine/run-fleet.js app/engine/config/agents.config.json"
+    "check:engine": "node --check app/engine/run-fleet.js app/engine/config/agents.config.json",
+    "check:openclaw-bridge": "node --check app/engine/openclaw-bridge.js"
   },
   "dependencies": {
     "canvas": "^3.2.1",

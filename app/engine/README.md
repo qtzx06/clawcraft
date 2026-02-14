@@ -24,6 +24,10 @@ Quick start
    - `MINDCRAFT_PATH` (optional external mindcraft fork path)
 4. Start fleet:
    - `npm run start:engine`
+5. Optional: start the OpenClaw bridge to let tools spawn agents dynamically:
+   - `npm run start:openclaw-bridge`
+   - Set `OPENCLAW_BRIDGE_PORT` for a custom port
+   - Optional token guard with `OPENCLAW_BRIDGE_TOKEN`
 
 What this implementation includes
 --------------------------------
