@@ -5,7 +5,15 @@
   "description": "Mineflayer bot observability and POV viewer for ClawCraft",
   "scripts": {
     "start:bot-observe": "node app/bot-observe.js",
-    "check:bot-observe": "node --check app/bot-observe.js"
+    "start:x402": "node app/x402-gateway.js",
+    "start:mindflayer": "node app/mindflayer-agent.js",
+    "start:openclaw-agent": "node app/openclaw-agent.js",
+    "check:bot-observe": "node --check app/bot-observe.js",
+    "check:x402": "node --check app/x402-gateway.js",
+    "check:mindflayer": "node --check app/mindflayer-agent.js",
+    "check:openclaw-agent": "node --check app/openclaw-agent.js",
+    "test": "bun test",
+    "test:spectator": "bun test app/spectator/"
   },
   "dependencies": {
     "canvas": "^3.2.1",
