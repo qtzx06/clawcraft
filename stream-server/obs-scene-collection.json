@@ -1,0 +1,46 @@
+{
+  "name": "ClawCraft Stream",
+  "scenes": [
+    {
+      "name": "AgentPOV",
+      "sources": [
+        { "name": "GameCapture", "type": "xcomposite_input" },
+        { "name": "HUD", "type": "browser_source", "url": "http://localhost:3009/hud", "width": 1920, "height": 1080 }
+      ]
+    },
+    {
+      "name": "Overhead",
+      "sources": [
+        { "name": "GameCapture", "type": "xcomposite_input" }
+      ]
+    },
+    {
+      "name": "PiP",
+      "sources": [
+        { "name": "GameCapture", "type": "xcomposite_input" },
+        { "name": "HUD", "type": "browser_source", "url": "http://localhost:3009/hud", "width": 1920, "height": 1080 }
+      ]
+    },
+    {
+      "name": "BRB",
+      "sources": [
+        { "name": "BRBImage", "type": "image_source" }
+      ]
+    }
+  ],
+  "transitions": [
+    { "name": "Cut", "type": "cut_transition" },
+    { "name": "Fade", "type": "fade_transition", "duration": 500 }
+  ],
+  "streaming": {
+    "service": "Twitch",
+    "server": "rtmp://live.twitch.tv/app",
+    "key_placeholder": "SET_VIA_ENV"
+  },
+  "output": {
+    "encoder": "nvenc",
+    "resolution": "1920x1080",
+    "fps": 60,
+    "bitrate": 6000
+  }
+}
