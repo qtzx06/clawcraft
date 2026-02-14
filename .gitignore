@@ -13,4 +13,3 @@ pnpm-debug.log*
 app/engine/mission-board/*.runtime.json
 
 # External Mindcraft source
-external/mindcraft/
