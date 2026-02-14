@@ -2,7 +2,7 @@
 set -euxo pipefail
 
 apt-get update
-apt-get install -y openjdk-17-jdk-headless curl jq screen
+apt-get install -y openjdk-21-jdk-headless curl jq screen
 
 mkdir -p /opt/minecraft
 cd /opt/minecraft
