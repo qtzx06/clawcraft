@@ -33,6 +33,7 @@ query.port=25565
 server-port=25565
 rcon.password=changeme
 rcon.port=25575
+enable-rcon=true
 PROPS
 
 if ! pgrep -f "java -Xms2G -Xmx2G -jar paper.jar nogui" > /dev/null; then
