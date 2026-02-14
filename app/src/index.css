@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0a0a0a;
+  --color-surface: #111111;
+  --color-border: #1a1a1a;
+  --color-gold: #c8a84e;
+  --color-gold-bright: #d4af37;
+  --color-gold-muted: #a08535;
+  --color-text: #f0f0f0;
+  --color-text-muted: #888888;
+  --color-text-dim: #555555;
+  --color-live: #22c55e;
+
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+}
+
+/* ── base ── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  text-transform: lowercase;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── noise grain overlay ── */
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+}
+
+/* ── entrance animations ── */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%, 100% {
+    filter: drop-shadow(0 0 30px rgba(200, 168, 78, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 50px rgba(200, 168, 78, 0.4));
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease both;
+}
+
+.animate-shimmer {
+  animation: shimmer 4s ease-in-out infinite;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* staggered delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-600 { animation-delay: 600ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-800 { animation-delay: 800ms; }
+
+/* ── selection color ── */
+
+::selection {
+  background-color: rgba(200, 168, 78, 0.3);
+  color: #f0f0f0;
+}
+
+/* ── scrollbar ── */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a1a1a;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c8a84e;
+}
+
+/* ── logo frame ── */
+
+.minecraft-gold-frame {
+  padding: 14px;
+  border: 3px solid #7b5d14;
+  background:
+    linear-gradient(135deg, #f5e6a3 0%, #d4af37 34%, #b88f2b 65%, #7f6219 100%);
+  box-shadow:
+    inset 0 0 0 2px #f9efc4,
+    inset 0 0 0 5px #9b7821,
+    4px 4px 0 #6c5112,
+    8px 8px 0 #4b380e;
+  image-rendering: pixelated;
+}
+
+.minecraft-gold-frame::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 2px solid rgba(255, 247, 201, 0.6);
+  pointer-events: none;
+}
