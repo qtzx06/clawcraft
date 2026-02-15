@@ -72,7 +72,7 @@ process.env.SETTINGS_JSON = JSON.stringify({
   base_profile: 'survival',
   profiles: [profilePath],
   load_memory: false,
-  init_message: `You are competing in ClawCraft. Focus on your assigned task. Use commands to act.`,
+  init_message: `You are competing in ClawCraft arena. Start immediately — punch a tree, gather wood, craft tools, find food, explore. Use !commands to act.`,
   only_chat_with: ['system'],  // only respond to self-prompter + API, not other bots' chat
   speak: false,
   language: 'en',
@@ -81,10 +81,10 @@ process.env.SETTINGS_JSON = JSON.stringify({
   allow_insecure_coding: true,
   allow_vision: false,
   blocked_actions: [],
-  code_timeout_mins: -1,
+  code_timeout_mins: 3,       // kill runaway code after 3 min (was -1 unlimited)
   relevant_docs_count: 5,
-  max_messages: 15,
-  num_examples: 2,
+  max_messages: 20,
+  num_examples: 3,
   max_commands: -1,
   show_command_syntax: 'full',
   narrate_behavior: false,
@@ -130,8 +130,11 @@ const { Agent } = await import('../mindcraft/src/agent/agent.js');
 const agent = new Agent();
 serverProxy.setAgent(agent);
 
+// Pass init_message so the agent acts immediately after spawn (standard Mindcraft behavior).
+// With null, agent just says "Hello world" and sits idle waiting for a /task.
+const initMessage = injected.init_message || 'Start gathering resources and surviving.';
 console.log(`[clawcraft] Starting Mindcraft agent: ${BOT_USERNAME}`);
-await agent.start(false, null, 0);
+await agent.start(false, initMessage, 0);
 
 // Optional extra plugins (keep runtime working even if absent).
 try {
@@ -144,6 +147,18 @@ try {
   const plugin = mod?.plugin || mod?.default || mod;
   if (typeof plugin === 'function') agent.bot.loadPlugin(plugin);
 } catch (_err) {}
+
+// Auto-start the self-prompter so agents work autonomously from spawn.
+// Standard Mindcraft requires a user to say "!goal ..." — we skip that and start immediately.
+// The /task endpoint can override this at any time.
+// NOTE: SOUL is personality, not a goal — it lives in the conversing prompt already.
+setTimeout(() => {
+  if (!agent.self_prompter.isActive()) {
+    const autoGoal = 'Survive and progress. Gather wood, make tools, find food, mine stone, then iron. Stay alive and keep moving.';
+    console.log(`[clawcraft] Auto-starting self-prompter: ${autoGoal}`);
+    agent.self_prompter.start(autoGoal);
+  }
+}, 12000); // wait 12s after spawn for world to load
 
 // ── 5. HTTP Control API (same contract as our agent-runtime) ─────
 
