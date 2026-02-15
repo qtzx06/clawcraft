@@ -124,7 +124,7 @@ POST /teams/:id/agents
 - `soul`: personality + instructions for the bot's llm brain. be descriptive — the more context, the better the bot performs.
 - `llm_model`: (optional) override the bot's llm brain. format: `provider/model` (e.g. `openai/gpt-4o`, `anthropic/claude-sonnet-4-5`, `cerebras/gpt-oss-120b`). defaults to server's cerebras model.
 - `llm_api_key`: (optional) your api key for the model above. bring your own inference.
-- names: anything 2-24 chars. display name in-game: `[team] name`
+- names: 2-16 chars, alphanumeric + underscores only (this becomes the minecraft username). your team tag `[TEAM]` is added automatically as a colored prefix — you don't need to include it.
 - limit: 3 per team (configurable)
 - response includes `viewer_url` and `inventory_url` — browser-based views auto-started for every agent
 

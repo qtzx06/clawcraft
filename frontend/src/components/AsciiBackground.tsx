@@ -1,29 +1,14 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 
-const TILE_W = 9
-const TILE_H = 9
-const FPS = 12
+const TILE = 10
+const FPS = 24
 const FRAME_INTERVAL = 1000 / FPS
-const PLAYBACK_RATE = 0.45
-const MIN_BRIGHTNESS = 0.46
-const NOISE_STRENGTH = 0.06
-const CREAM_BLEND = 0.14
-const HIGHLIGHT_KNEE = 0.72
-const HIGHLIGHT_BOOST = 0.32
+const PLAYBACK_RATE = 0.5
 
-// brighter cream palette to better match the logo treatment
-const CREAM_R = 255
-const CREAM_G = 253
-const CREAM_B = 247
-
-function clamp01(value: number) {
-  return Math.min(1, Math.max(0, value))
-}
-
-function tileNoise(col: number, row: number) {
-  const n = Math.sin(col * 12.9898 + row * 78.233) * 43758.5453
-  return n - Math.floor(n)
-}
+// cream tint pulled from the cloud video
+const CR = 255
+const CG = 251
+const CB = 242
 
 export default function AsciiBackground() {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -31,11 +16,12 @@ export default function AsciiBackground() {
   const displayRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
   const lastFrameRef = useRef<number>(0)
+  const prevBrightness = useRef<Float32Array | null>(null)
   const [dims, setDims] = useState({ cols: 0, rows: 0 })
 
   const calcDims = useCallback(() => {
-    const cols = Math.floor(window.innerWidth / TILE_W)
-    const rows = Math.floor(window.innerHeight / TILE_H)
+    const cols = Math.ceil(window.innerWidth / TILE)
+    const rows = Math.ceil(window.innerHeight / TILE)
     setDims({ cols, rows })
     if (sampleRef.current) {
       sampleRef.current.width = cols
@@ -45,12 +31,17 @@ export default function AsciiBackground() {
       displayRef.current.width = window.innerWidth
       displayRef.current.height = window.innerHeight
     }
+    prevBrightness.current = null
   }, [])
 
   useEffect(() => {
-    calcDims()
+    // Avoid synchronous setState inside an effect body (eslint rule); schedule it.
+    const raf = requestAnimationFrame(calcDims)
     window.addEventListener('resize', calcDims)
-    return () => window.removeEventListener('resize', calcDims)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', calcDims)
+    }
   }, [calcDims])
 
   useEffect(() => {
@@ -59,61 +50,61 @@ export default function AsciiBackground() {
     const display = displayRef.current
     if (!video || !sample || !display || dims.cols === 0) return
 
-    const ensureLoop = () => {
-      video.currentTime = 0
-      video.play().catch(() => {})
-    }
-
     const sCtx = sample.getContext('2d', { willReadFrequently: true })
     const dCtx = display.getContext('2d')
     if (!sCtx || !dCtx) return
 
+    const total = dims.cols * dims.rows
+
     function render(now: number) {
       rafRef.current = requestAnimationFrame(render)
-
       if (now - lastFrameRef.current < FRAME_INTERVAL) return
       lastFrameRef.current = now
-
       if (video!.paused || video!.ended || video!.readyState < 2) return
 
       sCtx!.drawImage(video!, 0, 0, dims.cols, dims.rows)
       const { data } = sCtx!.getImageData(0, 0, dims.cols, dims.rows)
 
+      // init prev buffer on first frame
+      if (!prevBrightness.current) {
+        prevBrightness.current = new Float32Array(total)
+        for (let j = 0; j < total; j++) {
+          const k = j * 4
+          prevBrightness.current[j] = (0.299 * data[k] + 0.587 * data[k + 1] + 0.114 * data[k + 2]) / 255
+        }
+      }
+
       dCtx!.clearRect(0, 0, display!.width, display!.height)
+
+      const lerp = 0.35 // temporal smoothing — blends with previous frame
 
       for (let row = 0; row < dims.rows; row++) {
         for (let col = 0; col < dims.cols; col++) {
-          const i = (row * dims.cols + col) * 4
-          const brightness = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255
-          // Keep the scene bright/creamy and add subtle grain so blocks blend more naturally.
-          const liftedBrightness = MIN_BRIGHTNESS + brightness * (1 - MIN_BRIGHTNESS)
-          const noisyBrightness =
-            liftedBrightness + (tileNoise(col, row) - 0.5) * NOISE_STRENGTH
-          const blendedBrightness =
-            clamp01(noisyBrightness) * (1 - CREAM_BLEND) + CREAM_BLEND
-          const highlightBoost =
-            Math.max(0, blendedBrightness - HIGHLIGHT_KNEE) * HIGHLIGHT_BOOST
-          const finalBrightness = clamp01(blendedBrightness + highlightBoost)
-          const x = col * TILE_W
-          const y = row * TILE_H
+          const idx = row * dims.cols + col
+          const i = idx * 4
+          const raw = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255
 
-          // fill cell with cream tinted by brightness
-          const cr = Math.floor(CREAM_R * finalBrightness)
-          const cg = Math.floor(CREAM_G * finalBrightness)
-          const cb = Math.floor(CREAM_B * finalBrightness)
-          dCtx!.fillStyle = `rgb(${cr}, ${cg}, ${cb})`
-          dCtx!.fillRect(x, y, TILE_W, TILE_H)
+          // smooth over time — no jitter
+          const smoothed = prevBrightness.current![idx] * (1 - lerp) + raw * lerp
+          prevBrightness.current![idx] = smoothed
+
+          // lift and soften — keep everything bright & cloudy
+          const b = 0.38 + smoothed * 0.62
+
+          const r = Math.floor(CR * b)
+          const g = Math.floor(CG * b)
+          const bl = Math.floor(CB * b)
+          dCtx!.fillStyle = `rgb(${r},${g},${bl})`
+          dCtx!.fillRect(col * TILE, row * TILE, TILE, TILE)
         }
       }
     }
 
     video.loop = true
     video.playbackRate = PLAYBACK_RATE
-    video.addEventListener('ended', ensureLoop)
     video.play().catch(() => {})
     rafRef.current = requestAnimationFrame(render)
     return () => {
-      video.removeEventListener('ended', ensureLoop)
       cancelAnimationFrame(rafRef.current)
     }
   }, [dims])
@@ -133,7 +124,7 @@ export default function AsciiBackground() {
       <canvas ref={sampleRef} className="hidden" />
       <canvas
         ref={displayRef}
-        className="absolute inset-0 pointer-events-none"
+        className="fixed inset-0 pointer-events-none z-[3] opacity-[0.67]"
         aria-hidden="true"
       />
     </>

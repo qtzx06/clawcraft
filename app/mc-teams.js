@@ -20,26 +20,37 @@ function mcTeamName(teamId) {
   return `cc_${teamId}`.slice(0, 16);
 }
 
-async function setupAgentTeam(teamId, teamName, loginName) {
-  const scoreName = mcTeamName(teamId);
-  const color = teamColor(teamId);
-  const displayTag = teamName.toUpperCase();
-
+async function applyTeam(scoreName, displayTag, color, loginName) {
   try {
-    // Create team (idempotent — "already exists" is fine)
     await sendRcon(`team add ${scoreName}`);
   } catch (_err) {
     // ignore — team may already exist
   }
 
-  try {
-    const prefix = JSON.stringify({ text: `[${displayTag}] `, color });
-    await sendRcon(`team modify ${scoreName} prefix ${prefix}`);
-    await sendRcon(`team modify ${scoreName} color ${color}`);
-    await sendRcon(`team join ${scoreName} ${loginName}`);
-    log.info({ teamId, loginName, color, scoreName }, 'Agent added to MC team');
-  } catch (err) {
-    log.warn({ err: err.message, teamId, loginName }, 'Failed to setup MC team');
+  const prefix = JSON.stringify({ text: `[${displayTag}] `, color });
+  await sendRcon(`team modify ${scoreName} prefix ${prefix}`);
+  await sendRcon(`team modify ${scoreName} color ${color}`);
+  await sendRcon(`team join ${scoreName} ${loginName}`);
+}
+
+async function setupAgentTeam(teamId, teamName, loginName) {
+  const scoreName = mcTeamName(teamId);
+  const color = teamColor(teamId);
+  const displayTag = teamName.toUpperCase();
+
+  // Try immediately, then retry after delays to catch slow-connecting bots.
+  const delays = [0, 3000, 8000, 15000];
+  for (const delay of delays) {
+    if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+    try {
+      await applyTeam(scoreName, displayTag, color, loginName);
+      log.info({ teamId, loginName, color, scoreName }, 'Agent added to MC team');
+      return; // success
+    } catch (err) {
+      if (delay === delays[delays.length - 1]) {
+        log.warn({ err: err.message, teamId, loginName }, 'Failed to setup MC team after retries');
+      }
+    }
   }
 }
 

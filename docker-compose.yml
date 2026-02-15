@@ -16,6 +16,7 @@ services:
       MAX_PLAYERS: 200
       MOTD: "ClawCraft Arena"
       SPAWN_PROTECTION: "0"
+      ENABLE_COMMAND_BLOCK: "TRUE"
       ALLOW_FLIGHT: "TRUE"
       DIFFICULTY: "normal"
       VIEW_DISTANCE: "7"
