@@ -16,10 +16,10 @@ const shared = {
 
 const registrationLimiter = rateLimit({
   ...shared,
-  windowMs: 5 * 60 * 1000, // 5 minutes
+  windowMs: 30 * 1000, // 30 seconds
   limit: (req) => {
     if (req.body?.wallet && req.body?.wallet_signature) return 10;
-    return 1;
+    return 3;
   },
   keyGenerator: (req) => req.ip,
 });
