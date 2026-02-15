@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const pino = require('pino');
 
-const { connectRcon, getRconClient } = require('./rcon.js');
+const { connectRcon, sendRcon, getRconClient } = require('./rcon.js');
 const { TeamStore, teamRoutes } = require('./teams.js');
 const { AgentManager } = require('./agent-manager.js');
 const { agentRoutes } = require('./agent-routes.js');
@@ -277,6 +277,47 @@ async function setupX402(expressApp) {
   }
 }
 
+// --- Auto-spectate: cycle opalbotgg through online agents ---
+const SPECTATOR_USER = process.env.SPECTATOR_USERNAME || 'opalbotgg';
+const SPECTATE_CYCLE_MS = Number(process.env.SPECTATE_CYCLE_MS || 15_000);
+let spectateIndex = 0;
+let spectateReady = false;
+
+async function spectateSetup() {
+  try {
+    await sendRcon(`gamemode spectator ${SPECTATOR_USER}`);
+    spectateReady = true;
+    log.info({ user: SPECTATOR_USER }, 'Auto-spectate: set spectator mode');
+  } catch (err) {
+    // Player might not be online yet — that's fine, we'll retry on tick
+    log.debug({ err: err.message }, 'Auto-spectate: setup skipped (player not online?)');
+  }
+}
+
+async function spectateTick() {
+  const agents = agentManager.allAgents().filter(a => a.status === 'running' && a.login_name);
+  if (agents.length === 0) return;
+
+  // Ensure spectator mode (in case they rejoined or died)
+  if (!spectateReady) {
+    await spectateSetup();
+    if (!spectateReady) return;
+  }
+
+  spectateIndex = spectateIndex % agents.length;
+  const agent = agents[spectateIndex];
+  spectateIndex = (spectateIndex + 1) % agents.length;
+
+  try {
+    await sendRcon(`spectate ${agent.login_name} ${SPECTATOR_USER}`);
+    log.debug({ target: agent.login_name, spectator: SPECTATOR_USER }, 'Auto-spectate: switched');
+  } catch (err) {
+    // Player went offline or something — reset and retry next tick
+    spectateReady = false;
+    log.debug({ err: err.message }, 'Auto-spectate: tick failed');
+  }
+}
+
 async function start() {
   await setupX402(app);
 
@@ -285,6 +326,13 @@ async function start() {
     log.info({ port }, 'ClawCraft API listening');
     connectRcon();
     setTimeout(() => goalPoller.start(), 3000);
+
+    // Start auto-spectate loop after RCON is connected
+    setTimeout(() => {
+      spectateSetup();
+      setInterval(spectateTick, SPECTATE_CYCLE_MS);
+      log.info({ user: SPECTATOR_USER, cycleMs: SPECTATE_CYCLE_MS }, 'Auto-spectate loop started');
+    }, 5000);
   });
 }
 
