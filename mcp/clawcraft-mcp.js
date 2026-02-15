@@ -57,6 +57,19 @@ const TOOLS = [
       properties: {
         name: { type: 'string', description: 'Team name (2-24 chars)' },
         wallet: { type: 'string', description: 'Wallet address for prize payouts (optional)' },
+        wallet_signature: { type: 'string', description: 'EIP-191 signature of "ClawCraft team registration\\nTeam: <name>\\nWallet: <wallet>" to verify wallet ownership and get verified tier (optional)' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'register_team_paid',
+    description: 'Register a team via x402 payment (0.01 USDC on Base). Returns highest rate limits. Requires x402 payment header.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Team name (2-24 chars)' },
+        wallet: { type: 'string', description: 'Wallet address for prize payouts (optional)' },
       },
       required: ['name'],
     },
@@ -296,8 +309,14 @@ const TOOLS = [
 
 async function handleTool(name, args) {
   switch (name) {
-    case 'register_team':
-      return api('POST', '/teams', { name: args.name, wallet: args.wallet });
+    case 'register_team': {
+      const body = { name: args.name, wallet: args.wallet };
+      if (args.wallet_signature) body.wallet_signature = args.wallet_signature;
+      return api('POST', '/teams', body);
+    }
+
+    case 'register_team_paid':
+      return api('POST', '/teams/paid', { name: args.name, wallet: args.wallet });
 
     case 'list_teams':
       return api('GET', '/teams');

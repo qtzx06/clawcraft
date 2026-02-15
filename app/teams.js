@@ -34,6 +34,8 @@ class TeamStore {
       team_id: teamId,
       name,
       wallet,
+      verified_wallet: null,
+      tier: 'free',
       api_key: apiKey,
       agents: [],
       created_at: Date.now(),
@@ -66,10 +68,27 @@ class TeamStore {
       team_id: team.team_id,
       name: team.name,
       wallet: team.wallet,
+      verified_wallet: team.verified_wallet,
+      tier: team.tier,
       agent_count: team.agents.length,
       agents: team.agents.map((a) => a.name),
       created_at: team.created_at,
     }));
+  }
+
+  verifyWallet(teamId, wallet) {
+    const team = this.get(teamId);
+    if (!team) return false;
+    team.verified_wallet = wallet.toLowerCase();
+    if (team.tier === 'free') team.tier = 'verified';
+    return true;
+  }
+
+  setTier(teamId, tier) {
+    const team = this.get(teamId);
+    if (!team) return false;
+    team.tier = tier;
+    return true;
   }
 
   addAgent(teamId, agentMeta) {
@@ -150,6 +169,8 @@ class TeamStore {
 
 function teamRoutes(store) {
   const router = require('express').Router();
+  const { registrationLimiter } = require('./rate-limit.js');
+  const { generateChallenge, verifyWalletSignature, verifyInlineSignature } = require('./wallet-auth.js');
 
   function requireAuth(req, res, next) {
     const key = req.headers['x-api-key'] || req.query.api_key;
@@ -161,13 +182,67 @@ function teamRoutes(store) {
     return next();
   }
 
-  router.post('/teams', (req, res) => {
+  router.post('/teams', registrationLimiter, async (req, res) => {
     const result = store.register(req.body || {});
     if (!result.ok) {
       const code = result.error === 'team_exists' ? 409 : 400;
       return res.status(code).json(result);
     }
+
+    // Inline wallet verification: if wallet + wallet_signature provided, verify and upgrade
+    if (req.body?.wallet && req.body?.wallet_signature) {
+      const verify = await verifyInlineSignature(
+        req.body.name,
+        req.body.wallet,
+        req.body.wallet_signature,
+      );
+      if (verify.ok) {
+        store.verifyWallet(result.team_id, verify.wallet);
+        result.tier = 'verified';
+        result.verified_wallet = verify.wallet;
+      }
+    }
+
+    result.tier = result.tier || 'free';
     return res.status(201).json(result);
+  });
+
+  // x402-gated paid registration — middleware applied in server.js if configured
+  router.post('/teams/paid', async (req, res) => {
+    const result = store.register(req.body || {});
+    if (!result.ok) {
+      const code = result.error === 'team_exists' ? 409 : 400;
+      return res.status(code).json(result);
+    }
+    store.setTier(result.team_id, 'paid');
+    if (req.body?.wallet) {
+      store.verifyWallet(result.team_id, req.body.wallet);
+    }
+    result.tier = 'paid';
+    return res.status(201).json(result);
+  });
+
+  // Challenge-response wallet verification
+  router.post('/auth/challenge', (req, res) => {
+    const wallet = String(req.body?.wallet || '').trim();
+    if (!wallet) {
+      return res.status(400).json({ ok: false, error: 'wallet_required' });
+    }
+    const challenge = generateChallenge(wallet);
+    return res.json({ ok: true, ...challenge });
+  });
+
+  router.post('/auth/verify', requireAuth, async (req, res) => {
+    const { nonce, signature } = req.body || {};
+    if (!nonce || !signature) {
+      return res.status(400).json({ ok: false, error: 'nonce_and_signature_required' });
+    }
+    const result = await verifyWalletSignature(nonce, signature);
+    if (!result.ok) {
+      return res.status(400).json(result);
+    }
+    store.verifyWallet(req.team.team_id, result.wallet);
+    return res.json({ ok: true, tier: 'verified', verified_wallet: result.wallet });
   });
 
   router.get('/teams', (_req, res) => {
@@ -185,6 +260,8 @@ function teamRoutes(store) {
       team_id: team.team_id,
       name: team.name,
       wallet: team.wallet,
+      verified_wallet: team.verified_wallet,
+      tier: team.tier,
       agents: team.agents.map((agent) => ({
         name: agent.name,
         display_name: agent.display_name,

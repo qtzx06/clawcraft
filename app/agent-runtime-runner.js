@@ -30,6 +30,7 @@ function resolveAgentEntrypoint() {
   }
 
   const candidates = [
+    path.resolve(cwd, 'vendor/mindcraft-bridge/clawcraft-entry.js'), // ClawCraft-owned Mindcraft bridge (preferred)
     path.resolve(cwd, 'vendor/mindcraft/clawcraft-entry.js'),   // Mindcraft LLM brain (preferred)
     path.resolve(cwd, 'vendor/agent-runtime/agent.js'),          // dumb command executor (fallback)
     path.resolve(cwd, 'vendor/agent-runtime/src/agent.js'),
@@ -54,4 +55,3 @@ function resolveAgentEntrypoint() {
 }
 
 module.exports = { resolveAgentEntrypoint };
-

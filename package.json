@@ -17,10 +17,14 @@
     "test:arena": "bun test app/teams.test.js app/agent-manager.test.js app/goal-tracker.test.js"
   },
   "dependencies": {
+    "@x402/core": "^2.3.1",
+    "@x402/evm": "^2.3.1",
+    "@x402/express": "^2.3.0",
     "canvas": "^3.2.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.2.1",
     "mineflayer": "^4.20.1",
     "mineflayer-armor-manager": "^2.0.1",
     "mineflayer-auto-eat": "^5.0.3",
@@ -39,6 +43,7 @@
     "prom-client": "^15.1.3",
     "rcon-client": "^4.2.5",
     "vec3": "^0.1.10",
+    "viem": "^2.45.3",
     "ws": "^8.19.0"
   }
 }

@@ -8,6 +8,7 @@ const { AgentManager } = require('./agent-manager.js');
 const { agentRoutes } = require('./agent-routes.js');
 const { GoalTracker } = require('./goal-tracker.js');
 const { GoalPoller } = require('./goal-poller.js');
+const { teamChatLimiter } = require('./rate-limit.js');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 const app = express();
@@ -174,7 +175,7 @@ function emitTeamChat(teamId, message) {
   }
 }
 
-app.post('/teams/:id/teamchat', requireTeamAuth, (req, res) => {
+app.post('/teams/:id/teamchat', requireTeamAuth, teamChatLimiter, (req, res) => {
   const from = req.body?.from ? String(req.body.from) : req.team.name;
   const message = String(req.body?.message || '').trim();
   if (!message) return res.status(400).json({ ok: false, error: 'message_required' });
@@ -266,9 +267,42 @@ app.post('/admin/rcon', requireAdmin, async (req, res) => {
   }
 });
 
-const port = Number(process.env.API_PORT || 3000);
-app.listen(port, () => {
-  log.info({ port }, 'ClawCraft API listening');
-  connectRcon();
-  setTimeout(() => goalPoller.start(), 3000);
+async function setupX402(expressApp) {
+  const payTo = process.env.X402_PAY_TO;
+  if (!payTo) {
+    log.info('X402_PAY_TO not set; x402 payment gating disabled');
+    return;
+  }
+
+  try {
+    const { paymentMiddleware } = await import('@x402/express');
+    const facilitatorUrl = process.env.X402_FACILITATOR_URL || 'https://x402.org/facilitator';
+    const price = process.env.X402_PRICE || '0.01';
+    const network = process.env.X402_NETWORK || 'base';
+
+    const x402 = paymentMiddleware(payTo, {
+      'POST /teams/paid': { price, network },
+    }, { url: facilitatorUrl });
+
+    expressApp.use(x402);
+    log.info({ payTo, network, price }, 'x402 payment gating enabled');
+  } catch (err) {
+    log.warn({ err: err.message }, 'Failed to load @x402/express; x402 disabled');
+  }
+}
+
+async function start() {
+  await setupX402(app);
+
+  const port = Number(process.env.API_PORT || 3000);
+  app.listen(port, () => {
+    log.info({ port }, 'ClawCraft API listening');
+    connectRcon();
+    setTimeout(() => goalPoller.start(), 3000);
+  });
+}
+
+start().catch((err) => {
+  log.error({ err: err.message }, 'Failed to start server');
+  process.exit(1);
 });

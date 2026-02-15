@@ -1,6 +1,7 @@
 function agentRoutes(teamStore, agentManager) {
   const router = require('express').Router();
   const { makeLoginUsername } = require('./mc-username.js');
+  const { agentCommandLimiter, publicChatLimiter } = require('./rate-limit.js');
 
   function requireAuth(req, res, next) {
     const key = req.headers['x-api-key'] || req.query.api_key;
@@ -127,13 +128,18 @@ function agentRoutes(teamStore, agentManager) {
     return res.json(result);
   });
 
-  router.post('/teams/:id/agents/:name/command', requireAuth, async (req, res) => {
+  router.get('/teams/:id/agents/:name/capabilities', requireAuth, async (req, res) => {
+    const result = await agentManager.proxyRequest(req.params.id, req.params.name, 'GET', '/capabilities');
+    return res.json(result);
+  });
+
+  router.post('/teams/:id/agents/:name/command', requireAuth, agentCommandLimiter, async (req, res) => {
     const result = await agentManager.proxyRequest(req.params.id, req.params.name, 'POST', '/action', req.body);
     return res.json(result);
   });
 
   // Explicit public chat endpoint so agent frameworks don't "accidentally" use it.
-  router.post('/teams/:id/agents/:name/say_public', requireAuth, async (req, res) => {
+  router.post('/teams/:id/agents/:name/say_public', requireAuth, publicChatLimiter, async (req, res) => {
     const message = String(req.body?.message || '').trim();
     if (!message) return res.status(400).json({ ok: false, error: 'message_required' });
     const result = await agentManager.proxyRequest(req.params.id, req.params.name, 'POST', '/action', {
@@ -143,7 +149,7 @@ function agentRoutes(teamStore, agentManager) {
     return res.json(result);
   });
 
-  router.post('/teams/:id/agents/:name/task', requireAuth, async (req, res) => {
+  router.post('/teams/:id/agents/:name/task', requireAuth, agentCommandLimiter, async (req, res) => {
     const result = await agentManager.proxyRequest(req.params.id, req.params.name, 'POST', '/task', req.body);
     return res.json(result);
   });
@@ -158,12 +164,12 @@ function agentRoutes(teamStore, agentManager) {
     return res.json(result);
   });
 
-  router.post('/teams/:id/agents/:name/plan', requireAuth, async (req, res) => {
+  router.post('/teams/:id/agents/:name/plan', requireAuth, agentCommandLimiter, async (req, res) => {
     const result = await agentManager.proxyRequest(req.params.id, req.params.name, 'POST', '/plan', req.body);
     return res.json(result);
   });
 
-  router.post('/teams/:id/agents/:name/message', requireAuth, async (req, res) => {
+  router.post('/teams/:id/agents/:name/message', requireAuth, agentCommandLimiter, async (req, res) => {
     const result = await agentManager.proxyRequest(req.params.id, req.params.name, 'POST', '/message', req.body);
     return res.json(result);
   });
