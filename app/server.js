@@ -277,15 +277,11 @@ async function setupX402(expressApp) {
   }
 }
 
-// --- Auto-spectate: cycle opalbotgg through online agents ---
-const mineflayer = require('mineflayer');
+// --- Auto-spectate: cycle opalbotgg through online agents via RCON ---
 const SPECTATOR_USER = process.env.SPECTATOR_USERNAME || 'opalbotgg';
 const SPECTATE_CYCLE_MS = Number(process.env.SPECTATE_CYCLE_MS || 15_000);
-const SPECTATE_LISTENER = process.env.SPECTATE_LISTENER || 'SpectateBot';
 let spectateIndex = 0;
 let spectateReady = false;
-let spectateLock = null;   // locked agent name, or null for auto-cycle
-let spectatePaused = false;
 
 async function spectateSetup() {
   try {
@@ -297,113 +293,39 @@ async function spectateSetup() {
   }
 }
 
-async function spectateTarget(loginName) {
+async function spectateTick() {
+  const agents = agentManager.allAgents().filter(a => a.status === 'running' && a.login_name);
+  if (agents.length === 0) return;
+
   if (!spectateReady) {
     await spectateSetup();
     if (!spectateReady) return;
   }
-  try {
-    await sendRcon(`spectate ${loginName} ${SPECTATOR_USER}`);
-    log.debug({ target: loginName, spectator: SPECTATOR_USER }, 'Auto-spectate: switched');
-  } catch (err) {
-    spectateReady = false;
-    log.debug({ err: err.message }, 'Auto-spectate: switch failed');
-  }
-}
 
-async function spectateTick() {
-  if (spectatePaused) return;
-
-  const agents = agentManager.allAgents().filter(a => a.status === 'running' && a.login_name);
-  if (agents.length === 0) return;
-
-  // If locked on a specific agent, stay on them
-  if (spectateLock) {
-    const locked = agents.find(a => a.login_name === spectateLock || a.name === spectateLock);
-    if (locked) {
-      await spectateTarget(locked.login_name);
-    } else {
-      // Locked agent went offline, resume auto
-      spectateLock = null;
-    }
-    return;
-  }
-
-  // Auto-cycle round-robin
   spectateIndex = spectateIndex % agents.length;
   const agent = agents[spectateIndex];
   spectateIndex = (spectateIndex + 1) % agents.length;
-  await spectateTarget(agent.login_name);
+
+  try {
+    await sendRcon(`spectate ${agent.login_name} ${SPECTATOR_USER}`);
+    log.debug({ target: agent.login_name, spectator: SPECTATOR_USER }, 'Auto-spectate: switched');
+  } catch (err) {
+    spectateReady = false;
+    log.debug({ err: err.message }, 'Auto-spectate: tick failed');
+  }
 }
 
-// Chat listener bot — watches for commands from the spectator user
-function startSpectateListener() {
-  const mcHost = process.env.MC_HOST || '127.0.0.1';
-  const mcPort = Number(process.env.MC_PORT || 25565);
-
-  const bot = mineflayer.createBot({
-    host: mcHost,
-    port: mcPort,
-    username: SPECTATE_LISTENER,
-    auth: 'offline',
-    version: false,
-  });
-
-  bot.on('spawn', () => {
-    log.info({ username: SPECTATE_LISTENER }, 'Spectate listener bot spawned');
-  });
-
-  bot.on('chat', (username, message) => {
-    if (username !== SPECTATOR_USER) return;
-    const msg = message.trim().toLowerCase();
-
-    if (msg === 'auto') {
-      spectateLock = null;
-      spectatePaused = false;
-      bot.whisper(SPECTATOR_USER, 'Auto-cycle resumed.');
-      log.info('Spectate: auto-cycle resumed');
-      return;
-    }
-
-    if (msg === 'next') {
-      spectateLock = null;
-      spectatePaused = false;
-      spectateTick(); // immediate switch
-      return;
-    }
-
-    if (msg === 'pause' || msg === 'stop') {
-      spectatePaused = true;
-      bot.whisper(SPECTATOR_USER, 'Auto-cycle paused. Type "auto" to resume.');
-      log.info('Spectate: paused');
-      return;
-    }
-
-    // Try to match an agent name
-    const agents = agentManager.allAgents().filter(a => a.status === 'running' && a.login_name);
-    const match = agents.find(a =>
-      a.name.toLowerCase() === msg ||
-      a.login_name.toLowerCase() === msg
-    );
-    if (match) {
-      spectateLock = match.login_name;
-      spectatePaused = false;
-      spectateTarget(match.login_name);
-      bot.whisper(SPECTATOR_USER, `Locked on ${match.name}. Type "auto" to resume cycling.`);
-      log.info({ target: match.name }, 'Spectate: locked');
-    }
-  });
-
-  bot.on('error', (err) => log.warn({ err: String(err) }, 'Spectate listener error'));
-  bot.on('kicked', (reason) => {
-    log.warn({ reason }, 'Spectate listener kicked, reconnecting in 10s');
-    setTimeout(() => startSpectateListener(), 10_000);
-  });
-  bot.on('end', () => {
-    log.warn('Spectate listener disconnected, reconnecting in 10s');
-    setTimeout(() => startSpectateListener(), 10_000);
-  });
-}
+// API endpoints for spectate control (use from dashboard or curl)
+app.post('/spectate/:name', (req, res) => {
+  const agents = agentManager.allAgents().filter(a => a.status === 'running' && a.login_name);
+  const match = agents.find(a =>
+    a.name.toLowerCase() === req.params.name.toLowerCase() ||
+    a.login_name.toLowerCase() === req.params.name.toLowerCase()
+  );
+  if (!match) return res.status(404).json({ ok: false, error: 'agent_not_found' });
+  sendRcon(`spectate ${match.login_name} ${SPECTATOR_USER}`).catch(() => {});
+  res.json({ ok: true, spectating: match.name });
+});
 
 async function start() {
   await setupX402(app);
@@ -414,11 +336,10 @@ async function start() {
     connectRcon();
     setTimeout(() => goalPoller.start(), 3000);
 
-    // Start auto-spectate loop + listener after RCON is connected
+    // Start auto-spectate loop after RCON is connected
     setTimeout(() => {
       spectateSetup();
       setInterval(spectateTick, SPECTATE_CYCLE_MS);
-      startSpectateListener();
       log.info({ user: SPECTATOR_USER, cycleMs: SPECTATE_CYCLE_MS }, 'Auto-spectate started');
     }, 5000);
   });
