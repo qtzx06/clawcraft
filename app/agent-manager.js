@@ -5,6 +5,20 @@ const { makeLoginUsername } = require('./mc-username.js');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 
+/** Map a model string like "openai/gpt-4o" to the correct API key env var. */
+function llmEnvKey(model) {
+  if (!model) return 'OPENAI_API_KEY';
+  const provider = model.split('/')[0].toLowerCase();
+  const map = {
+    openai: 'OPENAI_API_KEY',
+    cerebras: 'CEREBRAS_API_KEY',
+    anthropic: 'ANTHROPIC_API_KEY',
+    google: 'GOOGLE_API_KEY',
+    groq: 'GROQCLOUD_API_KEY',
+  };
+  return map[provider] || 'OPENAI_API_KEY';
+}
+
 class AgentManager {
   constructor(opts = {}) {
     this.mcHost = opts.mcHost || process.env.MC_HOST || '127.0.0.1';
@@ -115,6 +129,9 @@ class AgentManager {
       SOUL: agent.soul || '',
       CHAT_WHITELIST: process.env.CHAT_WHITELIST || '',
       RUNNER_SOURCE: entry.source,
+      // Per-agent LLM override (optional — falls back to server defaults)
+      ...(agent.llm_model ? { LLM_MODEL: agent.llm_model } : {}),
+      ...(agent.llm_api_key ? { [llmEnvKey(agent.llm_model)] : agent.llm_api_key } : {}),
     };
 
     // Mindcraft reads ./profiles/ relative to cwd. The bridge lives in

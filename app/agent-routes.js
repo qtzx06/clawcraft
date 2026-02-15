@@ -56,6 +56,8 @@ function agentRoutes(teamStore, agentManager, agentMetrics) {
       port: ports.api,
       viewer_port: ports.viewer,
       inventory_port: ports.inventory,
+      llm_model: req.body?.llm_model || null,
+      llm_api_key: req.body?.llm_api_key || null,
       self_hosted: false,
       status: 'spawning',
     };
