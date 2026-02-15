@@ -1,4 +1,4 @@
-function agentRoutes(teamStore, agentManager) {
+function agentRoutes(teamStore, agentManager, agentMetrics) {
   const router = require('express').Router();
   const { makeLoginUsername } = require('./mc-username.js');
   const { setupAgentTeam, removeFromTeam } = require('./mc-teams.js');
@@ -18,7 +18,7 @@ function agentRoutes(teamStore, agentManager) {
   }
 
   const MAX_AGENTS_PER_TEAM = Number(process.env.MAX_AGENTS_PER_TEAM || 3);
-  const MAX_TOTAL_AGENTS = Number(process.env.MAX_TOTAL_AGENTS || 200);
+  const MAX_TOTAL_AGENTS = Number(process.env.MAX_TOTAL_AGENTS || 100);
 
   router.post('/teams/:id/agents', requireAuth, async (req, res) => {
     const name = String(req.body?.name || '').trim();
@@ -46,14 +46,16 @@ function agentRoutes(teamStore, agentManager) {
 
     const displayName = `[${req.team.name}] ${name}`;
     const loginName = makeLoginUsername(teamId, name);
-    const port = agentManager.allocatePort();
+    const ports = agentManager.allocatePorts();
     const meta = {
       name,
       role,
       soul: req.body?.soul || null,
       display_name: displayName,
       login_name: loginName,
-      port,
+      port: ports.api,
+      viewer_port: ports.viewer,
+      inventory_port: ports.inventory,
       self_hosted: false,
       status: 'spawning',
     };
@@ -65,6 +67,7 @@ function agentRoutes(teamStore, agentManager) {
     // Fire-and-forget: assign MC scoreboard team for colored prefix
     setupAgentTeam(teamId, req.team.name, loginName).catch(() => {});
 
+    const host = process.env.PUBLIC_HOST || 'minecraft.opalbot.gg';
     return res.status(201).json({
       ok: true,
       team_id: teamId,
@@ -72,7 +75,11 @@ function agentRoutes(teamStore, agentManager) {
       role,
       display_name: displayName,
       login_name: loginName,
-      port,
+      port: ports.api,
+      viewer_port: ports.viewer,
+      inventory_port: ports.inventory,
+      viewer_url: `http://${host}:${ports.viewer}`,
+      inventory_url: `http://${host}:${ports.inventory}`,
       status: spawned?.status || 'registered',
       control_url: `/teams/${teamId}/agents/${name}`,
     });
@@ -116,6 +123,7 @@ function agentRoutes(teamStore, agentManager) {
 
   router.get('/teams/:id/agents', (req, res) => {
     const agents = agentManager.listAgents(req.params.id);
+    const host = process.env.PUBLIC_HOST || 'minecraft.opalbot.gg';
     return res.json({
       ok: true,
       agents: agents.map((a) => ({
@@ -126,6 +134,10 @@ function agentRoutes(teamStore, agentManager) {
         status: a.status,
         self_hosted: Boolean(a.self_hosted),
         port: a.port,
+        viewer_port: a.viewer_port || null,
+        inventory_port: a.inventory_port || null,
+        viewer_url: a.viewer_port ? `http://${host}:${a.viewer_port}` : null,
+        inventory_url: a.inventory_port ? `http://${host}:${a.inventory_port}` : null,
       })),
     });
   });
@@ -185,6 +197,17 @@ function agentRoutes(teamStore, agentManager) {
     const limit = Number(req.query.limit || 50);
     const logs = agentManager.getLogs(req.params.id, req.params.name, limit);
     return res.json({ ok: true, logs });
+  });
+
+  router.get('/teams/:id/agents/:name/metrics', requireAuth, (req, res) => {
+    if (!agentMetrics) {
+      return res.status(501).json({ ok: false, error: 'metrics_not_available' });
+    }
+    const metrics = agentMetrics.getMetrics(req.params.id, req.params.name);
+    if (!metrics) {
+      return res.json({ ok: true, metrics: null, message: 'no_data_yet' });
+    }
+    return res.json({ ok: true, metrics });
   });
 
   router.delete('/teams/:id/agents/:name', requireAuth, (req, res) => {

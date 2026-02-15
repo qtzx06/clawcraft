@@ -10,15 +10,23 @@ class AgentManager {
     this.mcHost = opts.mcHost || process.env.MC_HOST || '127.0.0.1';
     this.mcPort = opts.mcPort || Number(process.env.MC_PORT || 25565);
     this.basePort = opts.basePort || Number(process.env.AGENT_BASE_PORT || 4000);
-    this.nextPort = this.basePort;
+    this.nextIndex = 0;
+    this.freedPorts = []; // recycle port blocks from removed agents
     this.dryRun = Boolean(opts.dryRun || Number(process.env.DRY_RUN_AGENTS || 0));
     this.agents = new Map();
   }
 
-  allocatePort() {
-    const port = this.nextPort;
-    this.nextPort += 1;
-    return port;
+  allocatePorts() {
+    if (this.freedPorts.length > 0) {
+      return this.freedPorts.shift();
+    }
+    const i = this.nextIndex;
+    this.nextIndex += 1;
+    return {
+      api: this.basePort + i * 3,
+      viewer: this.basePort + i * 3 + 1,
+      inventory: this.basePort + i * 3 + 2,
+    };
   }
 
   key(teamId, name) {
@@ -100,6 +108,8 @@ class AgentManager {
       // Login username must be valid MC username (no spaces/brackets).
       BOT_USERNAME: agent.login_name || makeLoginUsername(teamId, name),
       API_PORT: String(agent.port),
+      VIEWER_PORT: String(agent.viewer_port || 0),
+      INVENTORY_PORT: String(agent.inventory_port || 0),
       TEAM_ID: teamId,
       AGENT_NAME: name,
       SOUL: agent.soul || '',
@@ -179,6 +189,15 @@ class AgentManager {
       agent.process = null;
       agent.pid = null;
       agent.status = 'stopped';
+    }
+
+    // Recycle port block for reuse
+    if (agent.port && !agent.self_hosted) {
+      this.freedPorts.push({
+        api: agent.port,
+        viewer: agent.viewer_port,
+        inventory: agent.inventory_port,
+      });
     }
 
     this.agents.delete(key);

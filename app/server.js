@@ -8,6 +8,7 @@ const { AgentManager } = require('./agent-manager.js');
 const { agentRoutes } = require('./agent-routes.js');
 const { GoalTracker } = require('./goal-tracker.js');
 const { GoalPoller } = require('./goal-poller.js');
+const { AgentMetrics } = require('./agent-metrics.js');
 const { teamChatLimiter } = require('./rate-limit.js');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
@@ -20,7 +21,8 @@ const teamStore = new TeamStore();
 const { router: teamsRouter } = teamRoutes(teamStore);
 const agentManager = new AgentManager();
 const goalTracker = new GoalTracker();
-const goalPoller = new GoalPoller(agentManager, goalTracker, teamStore);
+const agentMetrics = new AgentMetrics();
+const goalPoller = new GoalPoller(agentManager, goalTracker, teamStore, { agentMetrics });
 
 // --- Agent discovery endpoints ---
 const fs = require('node:fs');
@@ -74,7 +76,7 @@ app.get('/llms.txt', (_req, res) => {
     '',
     '## mcp',
     '',
-    '{"mcpServers":{"clawcraft":{"command":"node","args":["mcp/clawcraft-mcp.js"],"env":{"CLAWCRAFT_URL":"http://clawcraft.opalbot.gg:3000","CLAWCRAFT_API_KEY":"clf_..."}}}}',
+    '{"mcpServers":{"clawcraft":{"command":"node","args":["mcp/clawcraft-mcp.js"],"env":{"CLAWCRAFT_URL":"http://minecraft.opalbot.gg:3000","CLAWCRAFT_API_KEY":"clf_..."}}}}',
     '',
   ].join('\n'));
 });
@@ -98,7 +100,7 @@ app.get('/health', (_req, res) => {
 });
 
 app.use(teamsRouter);
-app.use(agentRoutes(teamStore, agentManager));
+app.use(agentRoutes(teamStore, agentManager, agentMetrics));
 
 app.get('/goal', (_req, res) => {
   res.json({

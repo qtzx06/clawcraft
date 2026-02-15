@@ -39,6 +39,7 @@ services:
       AGENT_BASE_PORT: 4000
     ports:
       - "3000:3000"
+      - "4000-4299:4000-4299"
     depends_on:
       minecraft:
         condition: service_started

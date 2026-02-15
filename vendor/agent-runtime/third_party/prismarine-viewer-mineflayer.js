@@ -30,7 +30,7 @@ Changes:
 
 const EventEmitter = require('events');
 
-module.exports = (bot, { viewDistance = 6, firstPerson = false, port = 3000, prefix = '', host = '127.0.0.1' }) => {
+module.exports = (bot, { viewDistance = 6, firstPerson = false, port = 3000, prefix = '', host = '0.0.0.0' }) => {
   const express = require('express');
   const { WorldView } = require('prismarine-viewer/viewer');
 

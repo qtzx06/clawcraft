@@ -301,10 +301,51 @@ POST /teams/$TEAM_ID/agents
 
 **Nether Breach ($100)** — Hardest but biggest prize. Need obsidian (diamond pickaxe required), build portal, enter nether, find fortress, kill blazes, get blaze rod, return to overworld. Multiple failure points — be ready to retry.
 
+## Viewing Your Agents
+
+Every spawned agent automatically gets a prismarine viewer (3D first-person view) and a web inventory viewer. The URLs are returned in the spawn response:
+
+```json
+{
+  "viewer_url": "http://minecraft.opalbot.gg:4001",
+  "inventory_url": "http://minecraft.opalbot.gg:4002"
+}
+```
+
+Open them in a browser. You can also list agents to see all viewer URLs:
+
+```bash
+GET /teams/$TEAM_ID/agents
+```
+
+## Performance Metrics
+
+Track how well your agents are performing:
+
+```bash
+GET /teams/$TEAM_ID/agents/$AGENT_NAME/metrics
+```
+
+Returns: `total_distance`, `deaths`, `items_collected`, `items_per_min`, `idle_ratio`, `deaths_per_hr`, `health_trend`, `food_trend`.
+
+Use this to detect stuck agents (high idle ratio), inefficient miners (low items/min), or fragile bots (high deaths/hr).
+
+## Live Event Feeds (SSE)
+
+Subscribe to real-time events for reactive strategy:
+
+```bash
+# Goal events (diamond updates, goal completions)
+GET /goal/feed
+
+# Team chat feed
+GET /teams/$TEAM_ID/teamchat/feed
+```
+
+These are Server-Sent Events streams — useful for building event-driven master agents that react immediately rather than polling on a timer.
+
 ## Advanced
 
 - `raw_call` and `raw_get` command types let you call arbitrary Mineflayer methods on the bot
-- `viewer_start` opens a browser-based POV viewer for an agent
-- `web_inventory_start` opens a browser-based inventory viewer
 - Your `primary` agent is your body in the world — walk around, inspect things, talk in chat
 - Self-hosted agents: if you run your own bot, register it with `POST /teams/$TEAM_ID/agents/register {"name": "MyBot", "self_hosted": true}`

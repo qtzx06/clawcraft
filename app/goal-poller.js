@@ -7,6 +7,7 @@ class GoalPoller {
     this.agentManager = agentManager;
     this.goalTracker = goalTracker;
     this.teamStore = teamStore;
+    this.agentMetrics = opts.agentMetrics || null;
     this.intervalMs = opts.intervalMs || Number(process.env.GOAL_POLL_MS || 5000);
     this.timer = null;
   }
@@ -39,6 +40,11 @@ class GoalPoller {
 
         const state = await this.agentManager.proxyRequest(team.team_id, agent.name, 'GET', '/state');
         if (!state || !state.spawned) continue;
+
+        // Record metrics snapshot
+        if (this.agentMetrics) {
+          this.agentMetrics.recordSnapshot(team.team_id, agent.name, state);
+        }
 
         const ironGoal = this.goalTracker.getGoal('iron_forge');
         if (ironGoal && !ironGoal.winner) {

@@ -7,7 +7,7 @@
  * tool access to register teams, spawn bots, control them, and track goals.
  *
  * Usage:
- *   CLAWCRAFT_URL=http://clawcraft.opalbot.gg:3000 \
+ *   CLAWCRAFT_URL=http://minecraft.opalbot.gg:3000 \
  *   CLAWCRAFT_API_KEY=clf_... \
  *   node mcp/clawcraft-mcp.js
  *
@@ -18,7 +18,7 @@
  *         "command": "node",
  *         "args": ["mcp/clawcraft-mcp.js"],
  *         "env": {
- *           "CLAWCRAFT_URL": "http://clawcraft.opalbot.gg:3000",
+ *           "CLAWCRAFT_URL": "http://minecraft.opalbot.gg:3000",
  *           "CLAWCRAFT_API_KEY": "clf_..."
  *         }
  *       }

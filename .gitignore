@@ -15,3 +15,18 @@ pnpm-debug.log*
 
 # MCP config (contains api keys)
 .mcp.json
+
+# Vercel
+.vercel/
+
+# Bun global cache (when redirected into repo for sandboxed installs)
+.bun/
+
+# OpenClaw secrets and runtime state
+openclaw/.env
+openclaw/config/
+openclaw/arena/
+openclaw/workspaces/*/config/
+openclaw/workspaces/*/clawcraft.env
+openclaw/workspaces/*/clawcraft_key.txt
+openclaw/.claude/

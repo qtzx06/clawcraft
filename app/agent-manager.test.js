@@ -8,11 +8,11 @@ describe('AgentManager', () => {
     mgr = new AgentManager({ mcHost: '127.0.0.1', mcPort: 25565, basePort: 4000, dryRun: true });
   });
 
-  it('assigns sequential ports', () => {
-    const p1 = mgr.allocatePort();
-    const p2 = mgr.allocatePort();
-    expect(p1).toBe(4000);
-    expect(p2).toBe(4001);
+  it('assigns stride-3 ports', () => {
+    const p1 = mgr.allocatePorts();
+    const p2 = mgr.allocatePorts();
+    expect(p1).toEqual({ api: 4000, viewer: 4001, inventory: 4002 });
+    expect(p2).toEqual({ api: 4003, viewer: 4004, inventory: 4005 });
   });
 
   it('tracks agent metadata', () => {

@@ -189,7 +189,19 @@ setTimeout(() => {
   }
 }, 12000); // wait 12s after spawn for world to load
 
-// ── 5. HTTP Control API (same contract as our agent-runtime) ─────
+// ── 5. Chat log (filtered — no !commands) ─────────────────────────
+
+const MAX_CHAT = 80;
+const chatLog = [];
+
+agent.bot.on('chat', (username, message) => {
+  // Filter out Mindcraft !commands — master doesn't need to see those
+  if (message && message.startsWith('!')) return;
+  chatLog.push({ username, message, time: Date.now() });
+  if (chatLog.length > MAX_CHAT) chatLog.shift();
+});
+
+// ── 6. HTTP Control API (same contract as our agent-runtime) ─────
 
 // Optional UI helpers (start/stop). Persist info across requests.
 let viewerInfo = null;
@@ -231,6 +243,7 @@ function gameState() {
     dimension: bot?.game?.dimension || 'overworld',
     inventory: inv,
     equipment: eq,
+    recentChat: chatLog.slice(-20),
     task: agent.self_prompter?.prompt || null,
     self_prompting: agent.self_prompter?.isActive() || false,
     mode: 'mindcraft',
@@ -596,7 +609,7 @@ const apiServer = http.createServer(async (req, res) => {
         if (!Number.isFinite(port) || port <= 0) return writeJson(res, 400, { ok: false, error: 'invalid_port' });
         // eslint-disable-next-line global-require, import/no-dynamic-require
         const viewerMineflayer = require('../agent-runtime/third_party/prismarine-viewer-mineflayer.js');
-        viewerInfo = viewerMineflayer(bot, { port, firstPerson: true, host: '127.0.0.1' });
+        viewerInfo = viewerMineflayer(bot, { port, firstPerson: true, host: '0.0.0.0' });
         return writeJson(res, 200, { ok: true, action: type, ...viewerInfo });
       }
 
@@ -620,7 +633,7 @@ const apiServer = http.createServer(async (req, res) => {
           return writeJson(res, 500, { ok: false, error: 'web_inventory_not_initialized' });
         }
         await bot.webInventory.start();
-        webInventoryInfo = { host: '127.0.0.1', port };
+        webInventoryInfo = { host: '0.0.0.0', port };
         return writeJson(res, 200, { ok: true, action: type, ...webInventoryInfo });
       }
 
@@ -736,6 +749,44 @@ const apiServer = http.createServer(async (req, res) => {
   }
 });
 
-apiServer.listen(API_PORT, '127.0.0.1', () => {
+apiServer.listen(API_PORT, '0.0.0.0', () => {
   console.log(`[clawcraft] ${BOT_USERNAME} API on ${API_PORT}`);
 });
+
+// ── 6. Auto-start viewer/inventory if env vars set ────────────────
+const VIEWER_PORT = process.env.VIEWER_PORT ? Number(process.env.VIEWER_PORT) : null;
+const INVENTORY_PORT = process.env.INVENTORY_PORT ? Number(process.env.INVENTORY_PORT) : null;
+
+if (process.env.AUTO_START_VIEWER === '1' && VIEWER_PORT) {
+  agent.bot.once('spawn', () => {
+    setTimeout(() => {
+      try {
+        const viewerMineflayer = require('../agent-runtime/third_party/prismarine-viewer-mineflayer.js');
+        viewerInfo = viewerMineflayer(agent.bot, { port: VIEWER_PORT, firstPerson: true, host: '0.0.0.0' });
+        console.log(`[clawcraft] Auto-started viewer on port ${VIEWER_PORT}`);
+      } catch (err) {
+        console.error(`[clawcraft] Failed to auto-start viewer: ${err.message}`);
+      }
+    }, 3000);
+  });
+}
+
+if (process.env.AUTO_START_INVENTORY === '1' && INVENTORY_PORT) {
+  agent.bot.once('spawn', () => {
+    setTimeout(async () => {
+      try {
+        const inventoryViewer = require('mineflayer-web-inventory');
+        if (typeof inventoryViewer === 'function') {
+          inventoryViewer(agent.bot, { port: INVENTORY_PORT, startOnLoad: false });
+          if (agent.bot.webInventory && typeof agent.bot.webInventory.start === 'function') {
+            await agent.bot.webInventory.start();
+            webInventoryInfo = { host: '0.0.0.0', port: INVENTORY_PORT };
+            console.log(`[clawcraft] Auto-started web inventory on port ${INVENTORY_PORT}`);
+          }
+        }
+      } catch (err) {
+        console.error(`[clawcraft] Failed to auto-start web inventory: ${err.message}`);
+      }
+    }, 4000);
+  });
+}

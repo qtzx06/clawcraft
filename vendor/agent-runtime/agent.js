@@ -676,6 +676,8 @@ bot.once('spawn', () => {
 });
 
 bot.on('chat', (username, message) => {
+  // Filter out Mindcraft !commands — noisy internals the master doesn't need
+  if (message && message.startsWith('!')) return;
   chatLog.push({ username, message, time: Date.now() });
   if (chatLog.length > MAX_CHAT) chatLog.shift();
 });
@@ -1314,7 +1316,7 @@ async function doAction(action) {
       if (action.port != null) port = Number(action.port);
       if (!Number.isFinite(port) || port <= 0) return { ok: false, error: 'invalid port' };
 
-      viewerInfo = viewerMineflayer(bot, { port, firstPerson: true, host: '127.0.0.1' });
+      viewerInfo = viewerMineflayer(bot, { port, firstPerson: true, host: '0.0.0.0' });
       pushLog('viewer_start', viewerInfo);
       return { ok: true, action: 'viewer_start', ...viewerInfo };
     }
@@ -1488,8 +1490,7 @@ async function doAction(action) {
           return { ok: false, error: 'web_inventory_not_initialized' };
         }
         await bot.webInventory.start();
-        // mineflayer-web-inventory does not expose host binding; it's typically localhost.
-        webInventoryInfo = { host: '127.0.0.1', port };
+        webInventoryInfo = { host: '0.0.0.0', port };
         pushLog('web_inventory_start', webInventoryInfo);
         return { ok: true, action: 'web_inventory_start', ...webInventoryInfo };
       } catch (err) {
@@ -1676,8 +1677,47 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(API_PORT, '127.0.0.1', () => {
+server.listen(API_PORT, '0.0.0.0', () => {
   pushLog('api:listening', { port: API_PORT });
   // eslint-disable-next-line no-console
   console.log(`[agent-runtime] ${BOT_USERNAME} API on ${API_PORT}`);
 });
+
+// ── Auto-start viewer/inventory if env vars set ──────────────────
+if (process.env.AUTO_START_VIEWER === '1' && VIEWER_PORT) {
+  bot.once('spawn', () => {
+    setTimeout(() => {
+      if (viewerInfo) return;
+      try {
+        viewerInfo = viewerMineflayer(bot, { port: VIEWER_PORT, firstPerson: true, host: '0.0.0.0' });
+        pushLog('viewer_auto_start', viewerInfo);
+        console.log(`[agent-runtime] Auto-started viewer on port ${VIEWER_PORT}`);
+      } catch (err) {
+        console.error(`[agent-runtime] Failed to auto-start viewer: ${err.message}`);
+      }
+    }, 3000);
+  });
+}
+
+const INVENTORY_PORT = process.env.INVENTORY_PORT ? Number(process.env.INVENTORY_PORT) : null;
+if (process.env.AUTO_START_INVENTORY === '1' && INVENTORY_PORT) {
+  bot.once('spawn', () => {
+    setTimeout(async () => {
+      if (webInventoryInfo) return;
+      try {
+        const inventoryViewer = require('mineflayer-web-inventory');
+        if (typeof inventoryViewer === 'function') {
+          inventoryViewer(bot, { port: INVENTORY_PORT, startOnLoad: false });
+          if (bot.webInventory && typeof bot.webInventory.start === 'function') {
+            await bot.webInventory.start();
+            webInventoryInfo = { host: '0.0.0.0', port: INVENTORY_PORT };
+            pushLog('web_inventory_auto_start', webInventoryInfo);
+            console.log(`[agent-runtime] Auto-started web inventory on port ${INVENTORY_PORT}`);
+          }
+        }
+      } catch (err) {
+        console.error(`[agent-runtime] Failed to auto-start web inventory: ${err.message}`);
+      }
+    }, 4000);
+  });
+}
