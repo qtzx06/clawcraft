@@ -7,6 +7,8 @@ RUN npm install --omit=dev
 
 COPY app ./app
 COPY vendor ./vendor
+COPY AGENTS.md ./AGENTS.md
+COPY skills ./skills
 COPY .env.example ./.env.example
 
 # Install Mindcraft dependencies (skip native builds — we don't need GL/canvas for headless bots)

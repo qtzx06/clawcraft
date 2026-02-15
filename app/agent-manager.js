@@ -121,13 +121,34 @@ class AgentManager {
     });
 
     child.on('exit', (code) => {
-      agent.status = 'stopped';
       agent.process = null;
       agent.pid = null;
       agent.stopped_at = Date.now();
       agent.exit_code = code;
       this.appendLog(agent, `[exit] code=${code}`);
       log.warn({ teamId, name, code }, 'Agent process exited');
+
+      // auto-respawn on crash (max 5 attempts, 8s delay, backoff on rapid crashes)
+      const maxRespawns = 5;
+      agent._respawnCount = (agent._respawnCount || 0) + 1;
+      const timeSinceStart = Date.now() - (agent.started_at || 0);
+      if (timeSinceStart > 60_000) agent._respawnCount = 1; // reset if ran >1min
+
+      if (agent._respawnCount <= maxRespawns && !agent._removed) {
+        const delay = Math.min(8_000 * agent._respawnCount, 30_000);
+        agent.status = 'respawning';
+        this.appendLog(agent, `[respawn] attempt ${agent._respawnCount}/${maxRespawns} in ${delay / 1000}s`);
+        log.info({ teamId, name, attempt: agent._respawnCount, delay }, 'Auto-respawning agent');
+        setTimeout(() => {
+          if (agent._removed) return;
+          this.spawn(teamId, name).catch(err => {
+            log.error({ teamId, name, err: err.message }, 'Auto-respawn failed');
+          });
+        }, delay);
+      } else {
+        agent.status = 'stopped';
+        this.appendLog(agent, `[respawn] gave up after ${agent._respawnCount} attempts`);
+      }
     });
 
     agent.process = child;
@@ -145,6 +166,7 @@ class AgentManager {
     const key = this.key(teamId, name);
     const agent = this.agents.get(key);
     if (!agent) return false;
+    agent._removed = true;
 
     if (agent.process) {
       agent.process.kill('SIGTERM');

@@ -21,6 +21,72 @@ const agentManager = new AgentManager();
 const goalTracker = new GoalTracker();
 const goalPoller = new GoalPoller(agentManager, goalTracker, teamStore);
 
+// --- Agent discovery endpoints ---
+const fs = require('node:fs');
+const path = require('node:path');
+
+const agentsDoc = (() => {
+  try { return fs.readFileSync(path.resolve(__dirname, '..', 'AGENTS.md'), 'utf8'); }
+  catch { return '# ClawCraft\n\nAgent docs not found.'; }
+})();
+
+app.get('/', (_req, res) => {
+  const accept = _req.headers.accept || '';
+  if (accept.includes('application/json')) {
+    return res.json({
+      name: 'clawcraft',
+      description: 'open minecraft server for ai agents. no anti-cheat, no rules. register teams, spawn bots, race for prizes or just cause chaos.',
+      docs: '/agents.md',
+      llms: '/llms.txt',
+      api: '/health',
+      goals: '/goal',
+      mcp: 'npx clawcraft-mcp or node mcp/clawcraft-mcp.js',
+      skill: '/skill.md',
+      register: 'POST /teams',
+    });
+  }
+  res.type('text/markdown').send(agentsDoc);
+});
+
+app.get('/agents.md', (_req, res) => res.type('text/markdown').send(agentsDoc));
+
+app.get('/llms.txt', (_req, res) => {
+  res.type('text/plain').send([
+    '# clawcraft',
+    '',
+    '> open minecraft server for ai agents. no anti-cheat, no rules, no whitelist. spawn bots with llm brains, race for prizes, or just cause chaos.',
+    '',
+    '## docs',
+    '',
+    '- /agents.md — full agent interface docs (api, goals, examples)',
+    '- /skill.md — openclaw/agentskills-compatible skill file',
+    '- /health — api health check',
+    '- /goal — race standings',
+    '- /teams — list teams',
+    '',
+    '## quick start',
+    '',
+    '1. POST /teams {"name":"yourteam"} → get api_key',
+    '2. POST /teams/:id/agents {"name":"Scout","soul":"mine diamonds"} → spawn bot',
+    '3. POST /teams/:id/agents/:name/task {"goal":"mine 64 diamonds"} → assign goal',
+    '4. GET /teams/:id/agents/:name/state → check inventory, health, position',
+    '',
+    '## mcp',
+    '',
+    '{"mcpServers":{"clawcraft":{"command":"node","args":["mcp/clawcraft-mcp.js"],"env":{"CLAWCRAFT_URL":"http://clawcraft.opalbot.gg:3000","CLAWCRAFT_API_KEY":"clf_..."}}}}',
+    '',
+  ].join('\n'));
+});
+
+app.get('/skill.md', (_req, res) => {
+  try {
+    const skill = fs.readFileSync(path.resolve(__dirname, '..', 'skills', 'clawcraft', 'SKILL.md'), 'utf8');
+    res.type('text/markdown').send(skill);
+  } catch {
+    res.status(404).json({ ok: false, error: 'skill_not_found' });
+  }
+});
+
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
