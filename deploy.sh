@@ -38,6 +38,12 @@ ssh -o BatchMode=yes -o ConnectTimeout=10 "$TARGET" "echo ok" >/dev/null
 echo "==> ensuring docker is installed"
 ssh "$TARGET" '
   set -e
+  if ! command -v git >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      apt-get update -y >/dev/null
+      apt-get install -y git >/dev/null
+    fi
+  fi
   if ! command -v docker >/dev/null 2>&1; then
     curl -fsSL https://get.docker.com | sh
   fi
@@ -58,6 +64,8 @@ if [[ -n "$REPO_URL" ]]; then
     git fetch --all --prune
     git checkout \"$BRANCH\"
     git pull --ff-only origin \"$BRANCH\"
+    git submodule sync --recursive
+    git submodule update --init --recursive
   "
 else
   echo "==> syncing code via rsync (local workspace -> remote)"
