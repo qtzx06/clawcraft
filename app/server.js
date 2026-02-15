@@ -55,6 +55,100 @@ app.get('/goal/feed', (req, res) => {
   req.on('close', () => clearInterval(ping));
 });
 
+// --- Team memory ---
+function requireTeamAuth(req, res, next) {
+  const key = req.headers['x-api-key'] || req.query.api_key;
+  const team = teamStore.authenticate(key);
+  if (!team) return res.status(401).json({ ok: false, error: 'invalid_api_key' });
+  if (req.params.id && req.params.id !== team.team_id) {
+    return res.status(403).json({ ok: false, error: 'forbidden' });
+  }
+  req.team = team;
+  return next();
+}
+
+app.get('/teams/:id/memory', requireTeamAuth, (req, res) => {
+  const data = teamStore.getMemory(req.params.id);
+  res.json({ ok: true, keys: Object.keys(data), data });
+});
+
+app.get('/teams/:id/memory/:key', requireTeamAuth, (req, res) => {
+  const value = teamStore.getMemoryKey(req.params.id, req.params.key);
+  if (value === undefined) {
+    return res.status(404).json({ ok: false, error: 'key_not_found' });
+  }
+  res.json({ ok: true, key: req.params.key, value });
+});
+
+app.put('/teams/:id/memory/:key', requireTeamAuth, (req, res) => {
+  const value = req.body?.value;
+  if (value === undefined) {
+    return res.status(400).json({ ok: false, error: 'value_required' });
+  }
+  teamStore.setMemoryKey(req.params.id, req.params.key, value);
+  res.json({ ok: true, key: req.params.key, stored: true });
+});
+
+app.delete('/teams/:id/memory/:key', requireTeamAuth, (req, res) => {
+  const deleted = teamStore.deleteMemoryKey(req.params.id, req.params.key);
+  res.json({ ok: true, key: req.params.key, deleted });
+});
+
+// --- Team chat (private, API-only) ---
+const teamChatListeners = new Map(); // teamId -> Set(res)
+
+function emitTeamChat(teamId, message) {
+  const listeners = teamChatListeners.get(teamId);
+  if (!listeners || listeners.size === 0) return;
+  const payload = JSON.stringify({ ok: true, team_id: teamId, message });
+  for (const res of listeners) {
+    try {
+      res.write(`event: teamchat\ndata: ${payload}\n\n`);
+    } catch (_err) {}
+  }
+}
+
+app.post('/teams/:id/teamchat', requireTeamAuth, (req, res) => {
+  const from = req.body?.from ? String(req.body.from) : req.team.name;
+  const message = String(req.body?.message || '').trim();
+  if (!message) return res.status(400).json({ ok: false, error: 'message_required' });
+  if (message.length > 4000) return res.status(400).json({ ok: false, error: 'message_too_long' });
+
+  const out = teamStore.pushTeamChat(req.params.id, { from, message, kind: req.body?.kind || 'team' });
+  if (!out) return res.status(404).json({ ok: false, error: 'team_not_found' });
+  emitTeamChat(req.params.id, out);
+  return res.status(201).json({ ok: true, team_id: req.params.id, message: out });
+});
+
+app.get('/teams/:id/teamchat', requireTeamAuth, (req, res) => {
+  const limit = Number(req.query.limit || 50);
+  const since = req.query.since != null ? Number(req.query.since) : null;
+  const messages = teamStore.listTeamChat(req.params.id, { limit, since });
+  return res.json({ ok: true, team_id: req.params.id, messages });
+});
+
+app.get('/teams/:id/teamchat/feed', requireTeamAuth, (req, res) => {
+  const teamId = req.params.id;
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  if (!teamChatListeners.has(teamId)) teamChatListeners.set(teamId, new Set());
+  teamChatListeners.get(teamId).add(res);
+
+  const ping = setInterval(() => {
+    res.write(`event: ping\ndata: {\"time\":${Date.now()}}\n\n`);
+  }, 15000);
+
+  req.on('close', () => {
+    clearInterval(ping);
+    const set = teamChatListeners.get(teamId);
+    if (set) set.delete(res);
+  });
+});
+
+// --- RCON ---
 let rconClient = null;
 
 async function connectRcon() {
@@ -75,7 +169,20 @@ async function connectRcon() {
   }
 }
 
-app.post('/admin/rcon', async (req, res) => {
+function requireAdmin(req, res, next) {
+  const expected = process.env.ADMIN_TOKEN || '';
+  if (!expected) {
+    // If no admin token is configured, treat admin endpoints as disabled.
+    return res.status(404).json({ ok: false, error: 'not_found' });
+  }
+  const got = req.headers['x-admin-token'] || req.query.admin_token;
+  if (!got || got !== expected) {
+    return res.status(401).json({ ok: false, error: 'invalid_admin_token' });
+  }
+  return next();
+}
+
+app.post('/admin/rcon', requireAdmin, async (req, res) => {
   if (!rconClient) {
     return res.status(503).json({ ok: false, error: 'rcon_unavailable' });
   }

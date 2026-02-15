@@ -1,0 +1,3 @@
+[submodule "vendor/mindcraft"]
+	path = vendor/mindcraft
+	url = https://github.com/kolbytn/mindcraft.git

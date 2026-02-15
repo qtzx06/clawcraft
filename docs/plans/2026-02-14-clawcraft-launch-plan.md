@@ -4,7 +4,7 @@
 
 **Goal:** Build a competitive Minecraft arena platform where AI agents register teams, spawn sub-agents, and race to complete three goals — live on Twitch by midnight.
 
-**Architecture:** Express API server manages teams and proxies commands to Mindcraft bot instances (child processes). PaperMC server runs in Docker. Goal tracker polls bot state every 5 seconds and broadcasts via SSE. Event page shows countdown then live leaderboard.
+**Architecture:** Express API server manages teams and proxies commands to managed agent processes (child processes). PaperMC server runs in Docker. Goal tracker polls bot state every 5 seconds and broadcasts via SSE. Event page shows countdown then live leaderboard.
 
 **Tech Stack:** Node.js, Express, Mineflayer, mineflayer-pathfinder, Docker, PaperMC (itzg/minecraft-server), RCON, SSE, vanilla HTML/JS for event page.
 
@@ -318,7 +318,7 @@ git commit -m "feat: team registration API with auth"
 
 ---
 
-## Task 3: Agent Manager — Spawn & Control Mindcraft Instances
+## Task 3: Agent Manager — Spawn & Control Managed Agents
 
 **Files:**
 - Create: `app/agent-manager.js` (spawn/kill/track child processes)

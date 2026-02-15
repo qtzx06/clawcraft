@@ -8,6 +8,8 @@ class TeamStore {
   constructor() {
     this.teams = new Map();
     this.apiKeys = new Map();
+    this.memory = new Map(); // teamId -> Map(key -> value)
+    this.teamChat = new Map(); // teamId -> [{id,time,from,message}]
   }
 
   register(input = {}) {
@@ -90,6 +92,59 @@ class TeamStore {
     if (idx < 0) return false;
     team.agents.splice(idx, 1);
     return true;
+  }
+
+  getMemory(teamId) {
+    const mem = this.memory.get(teamId);
+    if (!mem) return {};
+    return Object.fromEntries(mem);
+  }
+
+  getMemoryKey(teamId, key) {
+    const mem = this.memory.get(teamId);
+    if (!mem || !mem.has(key)) return undefined;
+    return mem.get(key);
+  }
+
+  setMemoryKey(teamId, key, value) {
+    if (!this.memory.has(teamId)) {
+      this.memory.set(teamId, new Map());
+    }
+    this.memory.get(teamId).set(key, value);
+  }
+
+  deleteMemoryKey(teamId, key) {
+    const mem = this.memory.get(teamId);
+    if (!mem) return false;
+    return mem.delete(key);
+  }
+
+  pushTeamChat(teamId, msg) {
+    const team = this.get(teamId);
+    if (!team) return null;
+    const list = this.teamChat.get(teamId) || [];
+    const id = `tc_${crypto.randomBytes(10).toString('hex')}`;
+    const message = {
+      id,
+      time: Date.now(),
+      from: String(msg?.from || 'team'),
+      message: String(msg?.message || ''),
+      kind: String(msg?.kind || 'team'),
+    };
+    list.push(message);
+    // Keep memory bounded.
+    const max = Math.max(50, Number(process.env.TEAMCHAT_MAX || 500));
+    while (list.length > max) list.shift();
+    this.teamChat.set(teamId, list);
+    return message;
+  }
+
+  listTeamChat(teamId, opts = {}) {
+    const list = this.teamChat.get(teamId) || [];
+    const since = opts.since != null ? Number(opts.since) : null;
+    const limit = Math.max(1, Number(opts.limit || 50));
+    const filtered = since ? list.filter((m) => m.time > since) : list;
+    return filtered.slice(-limit);
   }
 }
 

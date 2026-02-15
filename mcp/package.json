@@ -1,0 +1,10 @@
+{
+  "name": "clawcraft-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MCP server for AI agents to control ClawCraft",
+  "main": "clawcraft-mcp.js",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

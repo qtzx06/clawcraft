@@ -1,6 +1,7 @@
 const { fork } = require('node:child_process');
 const pino = require('pino');
-const { resolveMindcraftEntrypoint } = require('./mindcraft-runner.js');
+const { resolveAgentEntrypoint } = require('./agent-runtime-runner.js');
+const { makeLoginUsername } = require('./mc-username.js');
 
 const log = pino({ level: process.env.LOG_LEVEL || 'info' });
 
@@ -85,7 +86,7 @@ class AgentManager {
       return agent;
     }
 
-    const entry = resolveMindcraftEntrypoint();
+    const entry = resolveAgentEntrypoint();
     if (!entry.path) {
       agent.status = 'error';
       this.appendLog(agent, `[spawn_error] ${entry.error}`);
@@ -96,7 +97,8 @@ class AgentManager {
       ...process.env,
       MC_HOST: this.mcHost,
       MC_PORT: String(this.mcPort),
-      BOT_USERNAME: agent.display_name || `[${teamId}] ${name}`,
+      // Login username must be valid MC username (no spaces/brackets).
+      BOT_USERNAME: agent.login_name || makeLoginUsername(teamId, name),
       API_PORT: String(agent.port),
       TEAM_ID: teamId,
       AGENT_NAME: name,
@@ -104,7 +106,9 @@ class AgentManager {
       RUNNER_SOURCE: entry.source,
     };
 
-    const child = fork(entry.path, [], { env, silent: true });
+    // Mindcraft needs cwd set to its own directory for relative paths (profiles, etc.)
+    const cwd = require('node:path').dirname(entry.path);
+    const child = fork(entry.path, [], { env, silent: true, cwd });
 
     child.stdout?.on('data', (chunk) => {
       const line = String(chunk).trim();

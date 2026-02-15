@@ -29,6 +29,9 @@ const bot = mineflayer.createBot({
   username: BOT_USERNAME,
   auth: 'offline',
   version: false,
+  // Paper 1.21.x chat packets can trip prismarine-chat parsing.
+  // This fallback runtime doesn't require incoming chat, so disable it.
+  plugins: { chat: false },
 });
 
 bot.loadPlugin(pathfinder);
@@ -36,7 +39,10 @@ bot.loadPlugin(pathfinder);
 bot.once('spawn', () => {
   const movements = new Movements(bot);
   bot.pathfinder.setMovements(movements);
-  bot.chat(`${BOT_USERNAME} online`);
+  try {
+    if (typeof bot.chat === 'function') bot.chat(`${BOT_USERNAME} online`);
+    else if (bot._client?.chat) bot._client.chat(`${BOT_USERNAME} online`);
+  } catch (_err) {}
   pushLog('spawned');
 });
 
@@ -93,11 +99,28 @@ async function doAction(action) {
     return { ok: false, error: 'not_spawned' };
   }
 
+  function sendChat(msg) {
+    const text = String(msg || '');
+    try {
+      if (typeof bot.chat === 'function') bot.chat(text);
+      else if (bot._client?.chat) bot._client.chat(text);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: `chat_error:${err.message}` };
+    }
+  }
+
   switch (action.type) {
     case 'chat': {
-      bot.chat(String(action.message || ''));
+      const sent = sendChat(action.message || '');
       pushLog(`chat:${action.message || ''}`);
-      return { ok: true, action: 'chat' };
+      return sent.ok ? { ok: true, action: 'chat' } : sent;
+    }
+
+    case 'say_public': {
+      const sent = sendChat(action.message || '');
+      pushLog(`say_public:${action.message || ''}`);
+      return sent.ok ? { ok: true, action: 'say_public' } : sent;
     }
 
     case 'move': {

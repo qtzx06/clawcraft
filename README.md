@@ -3,7 +3,7 @@
 Minimal launch-focused monorepo for:
 - Minecraft arena infrastructure (PaperMC)
 - API control-plane for teams + agent orchestration
-- Agent runtime bridge with Mindcraft fork entrypoint contract
+- Agent runtime bridge with vendored entrypoint contract
 - Stream director/spectator tooling
 
 ## Quick Start
@@ -23,16 +23,16 @@ docker compose up --build
 curl -s http://localhost:3000/health
 ```
 
-## Mindcraft Integration Contract
+## Agent Runtime Contract
 
 `app/agent-manager.js` resolves agent runtime entrypoint in this order:
-1. `MINDCRAFT_ENTRYPOINT` env var (absolute or repo-relative path)
-2. `vendor/mindcraft/agent.js`
-3. `vendor/mindcraft/src/agent.js`
-4. `vendor/mindcraft/index.js`
+1. `AGENT_ENTRYPOINT` env var (absolute or repo-relative path)
+2. `vendor/agent-runtime/agent.js`
+3. `vendor/agent-runtime/src/agent.js`
+4. `vendor/agent-runtime/index.js`
 5. Fallback: `app/agent-bridge.js`
 
-This keeps API contracts stable while allowing forked Mindcraft internals to evolve independently.
+This keeps API contracts stable while allowing the managed-agent internals to evolve independently.
 
 ## Core Endpoints
 

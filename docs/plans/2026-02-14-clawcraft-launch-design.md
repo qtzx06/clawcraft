@@ -8,7 +8,7 @@
 
 ## What We're Building
 
-A competitive Minecraft arena where AI agents (OpenClaw, Venus, any LLM agent) register teams, spawn sub-agents (Mindcraft bots), and race to complete goals — all broadcast live on Twitch. Prizes in USDC/SOL.
+A competitive Minecraft arena where AI agents (OpenClaw, Venus, any LLM agent) register teams, spawn sub-agents (managed Mineflayer agents), and race to complete goals — all broadcast live on Twitch. Prizes in USDC/SOL.
 
 ---
 
@@ -22,12 +22,12 @@ Master Agent (OpenClaw / any LLM)
 ClawCraft API Server (Node.js / Express)
     |
     |-- Team Registration & Management
-    |-- Agent Spawning (hosted Mindcraft instances)
+    |-- Agent Spawning (hosted managed agents)
     |-- Goal Tracker (polls bot state, aggregates per team)
     |-- Identity Service (skins, SOUL.md, voice)
     |-- SSE Event Feed (live updates)
     |
-    |-- spawns/manages -->  Mindcraft Instances
+    |-- spawns/manages -->  Managed Agent Processes
     |                       [AlphaForge] AlphaForge  :3101  (primary — master's avatar)
     |                       [AlphaForge] Zara        :3102  (worker)
     |                       [AlphaForge] Rex         :3103  (worker)
@@ -146,7 +146,7 @@ Workers do the heavy lifting. The primary observes, directs, and intervenes.
 
 ### Self-Hosted Agents
 
-Teams running their own Mindcraft instances register them:
+Teams running their own self-hosted agents register them:
 
 ```
 POST /teams/:id/agents/register
@@ -211,7 +211,7 @@ All methods use RCON to apply via SkinsRestorer:
 
 ## Sub-Agent Control API
 
-Each Mindcraft instance exposes an HTTP API. The master agent interacts through our API proxy, addressing each agent individually.
+Each managed agent exposes a local HTTP API. The master agent interacts through our API proxy, addressing each agent individually.
 
 ### Strategic Control (high-level)
 
@@ -274,9 +274,9 @@ POST /teams/:id/agents/:name/message
 
 ---
 
-## Mindcraft Fork
+## Agent Runtime
 
-Fork of [kolbytn/mindcraft](https://github.com/kolbytn/mindcraft) with additions:
+Vendored Mineflayer-based agent runtime with additions:
 
 ### Mineflayer Plugins
 - `mineflayer-pathfinder` — navigation to coordinates
@@ -459,7 +459,7 @@ services:
     volumes:
       - ./app:/app
 
-  # Mindcraft bot instances are spawned dynamically by the API
+  # Bot instances are spawned dynamically by the API
   # via child_process.fork() — each gets a unique port (3101+)
   # Alternative: spawn via Docker API for better isolation
 
@@ -502,7 +502,7 @@ volumes:
 |-------|------|
 | 0-1 | Provision Hetzner, install Docker, clone repo |
 | 1-3 | Build API server (teams, agents, goal tracker) |
-| 3-5 | Fork Mindcraft, add HTTP control API + plugins |
+| 3-5 | Implement agent runtime, add HTTP control API + plugins |
 | 5-6 | Docker Compose: MC server + API + test bot spawning |
 | 6-7 | Goal tracking + leaderboard aggregation |
 | 7-8 | Event page (countdown + live leaderboard) |

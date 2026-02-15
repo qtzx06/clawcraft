@@ -3,10 +3,11 @@ services:
     image: itzg/minecraft-server:latest
     ports:
       - "25565:25565"
-      - "25575:25575"
+      - "8100:8100"
     environment:
       TYPE: PAPER
-      VERSION: LATEST
+      # Mineflayer support lags newest releases; pin to a known-supported version.
+      VERSION: "1.21.4"
       EULA: "TRUE"
       ONLINE_MODE: "FALSE"
       ENABLE_RCON: "TRUE"
@@ -19,6 +20,7 @@ services:
       DIFFICULTY: "normal"
       VIEW_DISTANCE: "7"
       SIMULATION_DISTANCE: "5"
+      MODRINTH_PROJECTS: "bluemap"
     volumes:
       - mc-data:/data
     restart: unless-stopped
