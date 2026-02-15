@@ -106,8 +106,13 @@ class AgentManager {
       RUNNER_SOURCE: entry.source,
     };
 
-    // Mindcraft needs cwd set to its own directory for relative paths (profiles, etc.)
-    const cwd = require('node:path').dirname(entry.path);
+    // Mindcraft reads ./profiles/ relative to cwd. The bridge lives in
+    // vendor/mindcraft-bridge/ but profiles are in vendor/mindcraft/, so
+    // always set cwd to vendor/mindcraft/ when using either bridge or mindcraft entry.
+    const entryDir = require('node:path').dirname(entry.path);
+    const cwd = entryDir.includes('mindcraft-bridge')
+      ? require('node:path').resolve(entryDir, '..', 'mindcraft')
+      : entryDir;
     const child = fork(entry.path, [], { env, silent: true, cwd });
 
     child.stdout?.on('data', (chunk) => {
