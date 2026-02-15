@@ -1,4 +1,6 @@
 {
+  "installCommand": "bun install",
+  "buildCommand": "bunx --bun vite build",
   "rewrites": [
     {
       "source": "/AGENTS.md",
