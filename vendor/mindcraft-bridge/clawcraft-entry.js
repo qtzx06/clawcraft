@@ -30,6 +30,10 @@ const SOUL = process.env.SOUL || '';
 const LLM_MODEL = process.env.LLM_MODEL || 'cerebras/gpt-oss-120b';
 const TEAM_ID = process.env.TEAM_ID || '';
 const AGENT_NAME = process.env.AGENT_NAME || '';
+const CHAT_WHITELIST = (process.env.CHAT_WHITELIST || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
 
 // ── 1. Write a dynamic profile from env ──────────────────────────
 
@@ -73,10 +77,10 @@ process.env.SETTINGS_JSON = JSON.stringify({
   profiles: [profilePath],
   load_memory: false,
   init_message: `You are competing in ClawCraft arena. Start immediately — punch a tree, gather wood, craft tools, find food, explore. Use !commands to act.`,
-  only_chat_with: ['system'],  // only respond to self-prompter + API, not other bots' chat
+  only_chat_with: ['system', ...CHAT_WHITELIST],
   speak: false,
   language: 'en',
-  chat_ingame: false,
+  chat_ingame: CHAT_WHITELIST.length > 0,  // enable in-game chat only when admins are whitelisted
   render_bot_view: false,
   allow_insecure_coding: true,
   allow_vision: false,
@@ -135,6 +139,31 @@ serverProxy.setAgent(agent);
 const initMessage = injected.init_message || 'Start gathering resources and surviving.';
 console.log(`[clawcraft] Starting Mindcraft agent: ${BOT_USERNAME}`);
 await agent.start(false, initMessage, 0);
+
+// ── Rate-limit player chat so spam doesn't overwhelm the LLM ────
+if (CHAT_WHITELIST.length > 0) {
+  const _origHandleMessage = agent.handleMessage.bind(agent);
+  const _chatCooldowns = new Map();   // player -> last response timestamp
+  const CHAT_COOLDOWN_MS = 5000;      // 1 response per 5s per player
+
+  agent.handleMessage = async function (source, message, max_responses) {
+    // 'system' messages (self-prompter, API) always pass through
+    if (source === 'system' || source === agent.name) {
+      return _origHandleMessage(source, message, max_responses);
+    }
+    // Player chat — enforce cooldown
+    const now = Date.now();
+    const last = _chatCooldowns.get(source) || 0;
+    if (now - last < CHAT_COOLDOWN_MS) {
+      console.log(`[clawcraft] Rate-limited chat from ${source} (${Math.ceil((CHAT_COOLDOWN_MS - (now - last)) / 1000)}s left)`);
+      return false;
+    }
+    _chatCooldowns.set(source, now);
+    console.log(`[clawcraft] Handling chat from whitelisted player: ${source}`);
+    return _origHandleMessage(source, message, max_responses);
+  };
+  console.log(`[clawcraft] Chat whitelist active: [${CHAT_WHITELIST.join(', ')}] (${CHAT_COOLDOWN_MS / 1000}s cooldown)`);
+}
 
 // Optional extra plugins (keep runtime working even if absent).
 try {

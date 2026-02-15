@@ -68,6 +68,43 @@ curl -s http://localhost:3000/teams/yourteam/agents/Scout/logs?limit=50 -H "X-AP
 
 Public Minecraft chat is explicit via `POST /teams/:id/agents/:name/say_public` (not via normal commands).
 
+## Auto-Spectate New Joins (No Server Restart)
+
+Vanilla/Paper doesn't have a built-in "auto-spectate newest join" toggle, but you can run an external helper that:
+
+- connects as a listener bot (mineflayer) to detect `playerJoined`
+- uses RCON to run `/gamemode spectator` + `/spectate <newPlayer> opalbotgg`
+
+This does not require restarting the Minecraft server. Your spectator account (`SPECTATOR_USERNAME`, e.g. `opalbotgg`) must be online and have permission for `/spectate`.
+
+If you're pointing at a hosted server and can't reach its RCON port, you can drive commands via the ClawCraft API's `POST /admin/rcon` instead (requires `ADMIN_TOKEN` set on the API server).
+
+```bash
+# .env
+MC_HOST=127.0.0.1
+MC_PORT=25565
+RCON_HOST=127.0.0.1
+RCON_PORT=25575
+RCON_PASSWORD=changeme
+SPECTATOR_USERNAME=opalbotgg
+LISTENER_USERNAME=AutoSpectateEye
+AUTO_SPECTATE_DWELL_MS=2000
+AUTO_SPECTATE_JOIN_DELAY_MS=750
+
+npm run start:auto-spectate-joins
+```
+
+Hosted example (no direct RCON needed):
+
+```bash
+CLAWCRAFT_URL=http://clawcraft.opalbot.gg:3000
+ADMIN_TOKEN=...
+MC_HOST=clawcraft.opalbot.gg
+MC_PORT=25565
+SPECTATOR_USERNAME=opalbotgg
+npm run start:auto-spectate-joins
+```
+
 ## Agent Runtime Entrypoint Contract (Managed Bots)
 
 The API server spawns managed bot processes and proxies control requests to them.

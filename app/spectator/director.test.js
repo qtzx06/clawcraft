@@ -31,7 +31,9 @@ describe('Director integration', () => {
     await rcon.spectatePlayer(next);
     await obs.cutTo('AgentPOV');
 
-    expect(rconSend).toHaveBeenCalledWith('spectate AgentAlpha SpectatorCam');
+    expect(rconSend).toHaveBeenCalledWith(
+      'minecraft:execute as SpectatorCam at SpectatorCam run minecraft:spectate @e[type=player,name=AgentAlpha,limit=1]'
+    );
     expect(obsCall).toHaveBeenCalledWith('SetCurrentProgramScene', { sceneName: 'AgentPOV' });
 
     // Second tick: Alpha on cooldown, should pick Beta

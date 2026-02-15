@@ -12,6 +12,8 @@
     "check:bot-observe": "node --check app/bot-observe.js",
     "start:director": "node app/spectator/director.js",
     "check:director": "node --check app/spectator/director.js",
+    "start:auto-spectate-joins": "node app/spectator/auto-spectate-joins.js",
+    "check:auto-spectate-joins": "node --check app/spectator/auto-spectate-joins.js",
     "test": "bun test",
     "test:spectator": "bun test app/spectator/",
     "test:arena": "bun test app/teams.test.js app/agent-manager.test.js app/goal-tracker.test.js"

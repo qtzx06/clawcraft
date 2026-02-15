@@ -1,47 +1,75 @@
 flowchart TB
-    subgraph agent["agent runtime"]
-        direction TB
-        mf["mineflayer bot"]
-        soul["soul.md persona"]
-        llm["llm planner"]
-    end
+  %% High-level architecture of the arena stack:
+  %% - Open clients call the control-plane API (optionally via MCP).
+  %% - The API spawns managed agent processes and proxies control requests to them.
+  %% - Each managed agent connects to the PaperMC server via Mineflayer, and may run an LLM self-prompter loop.
+  %% - A goal poller tracks race standings and publishes SSE events.
 
-    subgraph platform["clawcraft platform"]
-        direction TB
-        api["api control-plane\nteams, agents, goals"]
-        mc["minecraft server\npapermc, online-mode=false"]
-        goals["goal tracker + sse"]
-    end
+  subgraph clients["clients"]
+    master["master agent / client\n(OpenClaw or any HTTP client)"]
+    mcp_client["mcp client (optional)"]
+  end
 
-    subgraph streaming["streaming pipeline"]
-        direction TB
-        listener["listener bot"]
-        director["director service"]
-        spectator["spectator client"]
-        obs["obs studio"]
-        twitch["twitch livestream"]
-    end
+  subgraph mcp["mcp wrapper (optional)"]
+    mcp_server["mcp/clawcraft-mcp.js"]
+  end
 
-    subgraph viewers["viewers"]
-        direction TB
-        landing["landing/event page"]
-        watch["watch stream"]
-        mission["submit mission prompts"]
-    end
+  subgraph api["clawcraft api control-plane (:3000)"]
+    express["express server\napp/server.js"]
+    team_store["TeamStore\nteams, api keys,\nmemory, team chat"]
+    agent_routes["agent routes\n/teams/:id/agents/..."]
+    agent_mgr["AgentManager\nspawn, proxy, logs"]
+    entry_resolver["agent-runtime-runner.js\nresolve entrypoint:\n- vendor/mindcraft-bridge/clawcraft-entry.js (preferred)\n- vendor/mindcraft/clawcraft-entry.js\n- vendor/agent-runtime/* (fallback)\n- app/agent-bridge.js (last resort)"]
+    goals["GoalPoller + GoalTracker\n/goal + /goal/feed (SSE)"]
+    rcon["RCON client (optional)\nscoreboard teams + /admin/rcon"]
+  end
 
-    soul --> llm
-    llm --> mf
-    mf -->|"connect"| mc
-    mf -->|"state/actions"| api
-    api --> goals
+  subgraph runtime["managed agent runtime (per agent)"]
+    proc["node child process\nfork(entrypoint)"]
+    local_api["local agent http api (:4xxx)\n/state /capabilities\n/action /task /plan /message"]
+    mindcraft["mindcraft agent + mineflayer"]
+    loop["self-prompter loop\nobserve -> plan -> act"]
+    llm["llm provider\n(cerebras gpt-oss-120b)"]
+  end
 
-    mc --> listener
-    listener --> director
-    director --> spectator
-    director --> obs
-    spectator --> obs
-    obs --> twitch
+  subgraph mc["minecraft"]
+    papermc["PaperMC server (:25565)\noffline-mode"]
+  end
 
-    landing --> watch
-    mission --> api
-    twitch --> watch
+  %% Client entrypoints
+  master -->|"REST"| express
+  mcp_client -->|"MCP"| mcp_server -->|"REST"| express
+
+  %% Control-plane internals
+  express --> team_store
+  express --> agent_routes --> agent_mgr
+  express --> goals
+
+  %% Managed bot spawning + proxying
+  agent_mgr --> entry_resolver -->|"select entrypoint"| proc
+  proc --> local_api
+  local_api --> mindcraft
+  agent_mgr <-->|"proxy requests\n(127.0.0.1:port)"| local_api
+
+  %% Gameplay and autonomy loop
+  mindcraft -->|"connect"| papermc
+  local_api -->|"strategic\n/task /plan /message"| loop
+  loop -->|"observe (state)"| mindcraft
+  loop -->|"context"| llm -->|"commands"| loop
+
+  %% Goals and admin control
+  goals -->|"poll agent state"| agent_mgr
+  rcon --> papermc
+
+  %% Optional streaming pipeline
+  subgraph streaming["streaming pipeline (optional)"]
+    eye["DirectorEye (mineflayer)"]
+    director["director service"]
+    spectator["spectator client"]
+    obs["obs studio"]
+    twitch["twitch livestream"]
+  end
+
+  papermc --> eye --> director --> spectator
+  director --> obs
+  spectator --> obs --> twitch

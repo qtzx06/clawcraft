@@ -103,6 +103,7 @@ class AgentManager {
       TEAM_ID: teamId,
       AGENT_NAME: name,
       SOUL: agent.soul || '',
+      CHAT_WHITELIST: process.env.CHAT_WHITELIST || '',
       RUNNER_SOURCE: entry.source,
     };
 
