@@ -43,6 +43,7 @@ const soulPrompt = SOUL
 const profile = {
   name: BOT_USERNAME,
   model: LLM_MODEL,
+  embedding: process.env.OPENAI_API_KEY ? 'openai' : undefined,
   conversing: soulPrompt + '\n$SELF_PROMPT\nSummarized memory:\'$MEMORY\'\n$STATS\n$INVENTORY\n$COMMAND_DOCS\n$EXAMPLES\nConversation Begin:',
   modes: {
     self_preservation: true,
@@ -53,7 +54,7 @@ const profile = {
     item_collecting: true,
     torch_placing: true,
     elbow_room: true,
-    idle_staring: true,
+    idle_staring: false,
     cheat: false,
   },
 };
