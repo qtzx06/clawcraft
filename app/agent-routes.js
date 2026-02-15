@@ -1,6 +1,7 @@
 function agentRoutes(teamStore, agentManager) {
   const router = require('express').Router();
   const { makeLoginUsername } = require('./mc-username.js');
+  const { setupAgentTeam, removeFromTeam } = require('./mc-teams.js');
   const { agentCommandLimiter, publicChatLimiter } = require('./rate-limit.js');
 
   function requireAuth(req, res, next) {
@@ -61,6 +62,9 @@ function agentRoutes(teamStore, agentManager) {
     teamStore.addAgent(teamId, meta);
     const spawned = await agentManager.spawn(teamId, name);
 
+    // Fire-and-forget: assign MC scoreboard team for colored prefix
+    setupAgentTeam(teamId, req.team.name, loginName).catch(() => {});
+
     return res.status(201).json({
       ok: true,
       team_id: teamId,
@@ -96,6 +100,9 @@ function agentRoutes(teamStore, agentManager) {
 
     agentManager.register(teamId, meta);
     teamStore.addAgent(teamId, meta);
+
+    // Fire-and-forget: assign MC scoreboard team for colored prefix
+    setupAgentTeam(teamId, req.team.name, loginName).catch(() => {});
 
     return res.status(201).json({
       ok: true,
@@ -181,11 +188,14 @@ function agentRoutes(teamStore, agentManager) {
   });
 
   router.delete('/teams/:id/agents/:name', requireAuth, (req, res) => {
+    const agent = agentManager.getAgent(req.params.id, req.params.name);
+    const loginName = agent?.login_name;
     const removed = agentManager.remove(req.params.id, req.params.name);
     if (!removed) {
       return res.status(404).json({ ok: false, error: 'agent_not_found' });
     }
     teamStore.removeAgent(req.params.id, req.params.name);
+    if (loginName) removeFromTeam(loginName).catch(() => {});
     return res.json({ ok: true, removed: true });
   });
 
