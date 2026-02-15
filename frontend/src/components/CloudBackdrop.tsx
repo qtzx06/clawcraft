@@ -39,7 +39,7 @@ export default function CloudBackdrop() {
         const driftX = Math.sin(elapsed * (Math.PI * 2) / l.speed) * l.drift
         const driftY = Math.cos(elapsed * (Math.PI * 2) / (l.speed * 1.3)) * (l.drift * 0.3)
 
-        const baseTransform = l.style?.transform ?? ''
+        const baseTransform = (l.style as Record<string, string>)?.transform ?? ''
         els[i].style.transform = `${baseTransform} translate(${driftX + jitterX[i]}px, ${driftY + jitterY[i]}px)`
       }
 

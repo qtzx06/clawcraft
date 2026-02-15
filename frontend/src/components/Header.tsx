@@ -45,7 +45,7 @@ function useSketchJitter(extraTransform = '') {
 
       const dx = Math.sin(t * (Math.PI * 2) / speed) * drift
       const dy = Math.cos(t * (Math.PI * 2) / (speed * 1.3)) * (drift * 0.3)
-      el.style.transform = `translate(-50%, -50%) ${extraTransform} translate(${dx + jx}px, ${dy + jy}px)`
+      el!.style.transform = `translate(-50%, -50%) ${extraTransform} translate(${dx + jx}px, ${dy + jy}px)`
 
       raf.current = requestAnimationFrame(update)
     }
