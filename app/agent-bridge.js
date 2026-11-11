@@ -244,7 +244,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(API_PORT, () => {
+server.listen(API_PORT, '127.0.0.1', () => {
   pushLog(`api:listening:${API_PORT}`);
   console.log(`[agent-bridge] ${BOT_USERNAME} API on ${API_PORT}`);
 });

@@ -272,7 +272,9 @@ async function setupX402(expressApp) {
       'POST /teams/paid': { price, network },
     }, { url: facilitatorUrl });
 
-    expressApp.use(x402);
+    // Applied per-route by teams.js (/teams/paid); app.use() here would run
+    // after teamsRouter is mounted and never gate the route.
+    expressApp.locals.x402 = x402;
     log.info({ payTo, network, price }, 'x402 payment gating enabled');
   } catch (err) {
     log.warn({ err: err.message }, 'Failed to load @x402/express; x402 disabled');

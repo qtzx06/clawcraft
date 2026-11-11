@@ -1677,7 +1677,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(API_PORT, '0.0.0.0', () => {
+server.listen(API_PORT, '127.0.0.1', () => {
   pushLog('api:listening', { port: API_PORT });
   // eslint-disable-next-line no-console
   console.log(`[agent-runtime] ${BOT_USERNAME} API on ${API_PORT}`);

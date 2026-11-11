@@ -749,7 +749,7 @@ const apiServer = http.createServer(async (req, res) => {
   }
 });
 
-apiServer.listen(API_PORT, '0.0.0.0', () => {
+apiServer.listen(API_PORT, '127.0.0.1', () => {
   console.log(`[clawcraft] ${BOT_USERNAME} API on ${API_PORT}`);
 });
 

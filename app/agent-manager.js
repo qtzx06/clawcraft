@@ -19,6 +19,22 @@ function llmEnvKey(model) {
   return map[provider] || 'OPENAI_API_KEY';
 }
 
+// Server-only secrets that must never reach agent processes (which run
+// user-supplied souls/goals). LLM provider keys are intentionally passed through.
+const SERVER_SECRET_ENV = [
+  /^RCON_/, /^X402_/, /^OBS_WS_/, /^TWITCH_/, /^HETZNER_/,
+  /^ADMIN_TOKEN$/, /^CLAWCRAFT_API_KEY$/, /^OPENCLAW_BRIDGE_TOKEN$/,
+  /^TOOL_SERVICE_(TOKEN|SIGNATURE_SECRET)$/,
+];
+
+function childBaseEnv() {
+  const env = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (!SERVER_SECRET_ENV.some((re) => re.test(key))) env[key] = value;
+  }
+  return env;
+}
+
 class AgentManager {
   constructor(opts = {}) {
     this.mcHost = opts.mcHost || process.env.MC_HOST || '127.0.0.1';
@@ -116,7 +132,7 @@ class AgentManager {
     }
 
     const env = {
-      ...process.env,
+      ...childBaseEnv(),
       MC_HOST: this.mcHost,
       MC_PORT: String(this.mcPort),
       // Login username must be valid MC username (no spaces/brackets).

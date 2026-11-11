@@ -18,7 +18,11 @@ const https = require('node:https');
 
 const API_BASE = process.env.CLAWCRAFT_URL || 'http://minecraft.opalbot.gg:3000';
 const TEAM_ID = process.env.CLAWCRAFT_TEAM_ID || 'openclaw';
-const API_KEY = process.env.CLAWCRAFT_API_KEY || 'clf_bd51ff60a827b94ac1dd82d56585d730';
+const API_KEY = process.env.CLAWCRAFT_API_KEY;
+if (!API_KEY) {
+  console.error('CLAWCRAFT_API_KEY is required');
+  process.exit(1);
+}
 const AGENT_NAME = process.env.CLAWCRAFT_AGENT_NAME || 'Ace';
 
 const SLEEP_ACTIVE = 5_000;   // 5s when events pending

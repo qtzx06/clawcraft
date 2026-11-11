@@ -207,17 +207,24 @@ function teamRoutes(store) {
     return res.status(201).json(result);
   });
 
-  // x402-gated paid registration — middleware applied in server.js if configured
-  router.post('/teams/paid', async (req, res) => {
+  // x402-gated paid registration. server.js stores the x402 middleware in
+  // app.locals.x402; without it, paid registration is disabled (fail closed).
+  const requirePayment = (req, res, next) => {
+    const gate = req.app?.locals?.x402;
+    if (typeof gate !== 'function') {
+      return res.status(503).json({ ok: false, error: 'paid_registration_disabled' });
+    }
+    return gate(req, res, next);
+  };
+
+  router.post('/teams/paid', requirePayment, async (req, res) => {
     const result = store.register(req.body || {});
     if (!result.ok) {
       const code = result.error === 'team_exists' ? 409 : 400;
       return res.status(code).json(result);
     }
     store.setTier(result.team_id, 'paid');
-    if (req.body?.wallet) {
-      store.verifyWallet(result.team_id, req.body.wallet);
-    }
+    // Wallets are only marked verified via signature (/auth/challenge + /auth/verify).
     result.tier = 'paid';
     return res.status(201).json(result);
   });
