@@ -1,3 +1,6 @@
 [submodule "external/mindcraft"]
 	path = external/mindcraft
 	url = https://github.com/davidwcode/mindcraft
+[submodule "vendor/mindcraft"]
+	path = vendor/mindcraft
+	url = https://github.com/kolbytn/mindcraft.git

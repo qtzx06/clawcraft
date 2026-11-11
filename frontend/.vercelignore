@@ -1,0 +1,12 @@
+# Keep Vercel uploads small. The Vite build only needs `index.html`, `src/`, and `public/`.
+node_modules
+dist
+dist-ssr
+.vercel
+output
+spectator
+bot-observe.js
+mindflayer-agent.js
+openclaw-agent.js
+x402-client.js
+x402-gateway.js

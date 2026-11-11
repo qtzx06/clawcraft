@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClawCraft — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--bg2:#12121a;--bg3:#1a1a25;--bg4:#22222f;
+  --border:#2a2a3a;--border-glow:#3a3a5a;
+  --text:#e0e0e8;--text2:#8888a0;--text3:#555568;
+  --iron:#7ec8e3;--diamond:#4af5c7;--nether:#ff6b4a;
+  --gold:#f0c040;--blue:#4a9eff;--gray:#666680;
+  --pulse:rgba(78,200,200,0.08);
+}
+html{font-size:15px}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'JetBrains Mono',monospace;
+  min-height:100vh;overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(78,200,200,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 90%, rgba(255,107,74,0.03) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, transparent, transparent 100px, rgba(255,255,255,0.008) 100px, rgba(255,255,255,0.008) 101px);
+}
+
+.shell{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:1.5rem}
+
+/* ─── Header ─── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1rem 0 1.5rem;border-bottom:1px solid var(--border);
+  margin-bottom:2rem;
+}
+.logo{display:flex;align-items:center;gap:0.75rem}
+.logo-icon{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,var(--diamond),var(--iron));
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+}
+.logo h1{
+  font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:1.4rem;
+  letter-spacing:0.12em;text-transform:uppercase;
+  background:linear-gradient(135deg,var(--text),var(--text2));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo span{
+  font-size:0.65rem;color:var(--text3);letter-spacing:0.2em;
+  text-transform:uppercase;margin-left:0.5rem;
+}
+.status-cluster{display:flex;align-items:center;gap:1.2rem}
+.status-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--diamond);box-shadow:0 0 8px var(--diamond);
+  animation:pulse 2s ease-in-out infinite;
+}
+.status-dot.offline{background:var(--nether);box-shadow:0 0 8px var(--nether)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.status-label{font-size:0.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:0.1em}
+.agent-count{
+  font-family:'Chakra Petch',sans-serif;font-size:1.6rem;font-weight:700;
+  color:var(--text);line-height:1;
+}
+.agent-count small{font-size:0.55rem;color:var(--text3);font-weight:400;letter-spacing:0.1em}
+
+/* ─── Grid ─── */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* ─── Section ─── */
+.section-title{
+  font-family:'Chakra Petch',sans-serif;font-weight:600;font-size:0.75rem;
+  letter-spacing:0.2em;text-transform:uppercase;color:var(--text3);
+  margin-bottom:1rem;display:flex;align-items:center;gap:0.6rem;
+}
+.section-title::before{
+  content:'';width:3px;height:14px;border-radius:1px;
+}
+.section-title.goals::before{background:var(--nether)}
+.section-title.teams::before{background:var(--iron)}
+.section-title.feed::before{background:var(--diamond)}
+
+/* ─── Goal Cards ─── */
+.goal-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:1.1rem 1.2rem;margin-bottom:0.75rem;
+  transition:border-color 0.3s;position:relative;overflow:hidden;
+}
+.goal-card::before{
+  content:'';position:absolute;top:0;left:0;width:3px;height:100%;
+}
+.goal-card.iron::before{background:var(--iron)}
+.goal-card.diamond::before{background:var(--diamond)}
+.goal-card.nether::before{background:var(--nether)}
+.goal-card:hover{border-color:var(--border-glow)}
+.goal-card.won{opacity:0.7}
+.goal-card.won::after{
+  content:'WON';position:absolute;top:0.8rem;right:1rem;
+  font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:0.6rem;
+  letter-spacing:0.15em;color:var(--diamond);
+  border:1px solid var(--diamond);padding:2px 8px;border-radius:3px;
+}
+.goal-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.5rem}
+.goal-name{
+  font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:1rem;
+  letter-spacing:0.05em;
+}
+.goal-prize{
+  font-size:0.75rem;font-weight:700;
+  color:var(--gold);
+}
+.goal-desc{font-size:0.65rem;color:var(--text2);margin-bottom:0.7rem;line-height:1.5}
+.goal-bar-wrap{
+  height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;
+}
+.goal-bar{
+  height:100%;border-radius:3px;transition:width 0.6s ease;min-width:0;
+}
+.goal-card.iron .goal-bar{background:linear-gradient(90deg,var(--iron),#a0e0ff)}
+.goal-card.diamond .goal-bar{background:linear-gradient(90deg,var(--diamond),#80ffdd)}
+.goal-card.nether .goal-bar{background:linear-gradient(90deg,var(--nether),#ff9977)}
+.goal-leader{
+  font-size:0.6rem;color:var(--text3);margin-top:0.4rem;
+  display:flex;justify-content:space-between;
+}
+
+/* ─── Team Cards ─── */
+.team-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:1rem 1.2rem;margin-bottom:0.6rem;
+  transition:border-color 0.3s;
+}
+.team-card:hover{border-color:var(--border-glow)}
+.team-head{display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem}
+.team-name{
+  font-family:'Chakra Petch',sans-serif;font-weight:700;font-size:0.9rem;
+  letter-spacing:0.04em;flex:1;
+}
+.tier-badge{
+  font-size:0.5rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+  padding:2px 7px;border-radius:3px;line-height:1.5;
+}
+.tier-badge.free{background:var(--bg4);color:var(--gray)}
+.tier-badge.verified{background:rgba(74,158,255,0.15);color:var(--blue);border:1px solid rgba(74,158,255,0.3)}
+.tier-badge.paid{background:rgba(240,192,64,0.12);color:var(--gold);border:1px solid rgba(240,192,64,0.3)}
+.agent-list{display:flex;flex-wrap:wrap;gap:0.4rem}
+.agent-chip{
+  font-size:0.6rem;padding:3px 8px;border-radius:3px;
+  background:var(--bg4);color:var(--text2);
+  display:flex;align-items:center;gap:0.35rem;
+}
+.agent-chip .dot{width:5px;height:5px;border-radius:50%}
+.agent-chip .dot.running{background:var(--diamond)}
+.agent-chip .dot.registered,.agent-chip .dot.spawning{background:var(--gold)}
+.agent-chip .dot.stopped,.agent-chip .dot.error{background:var(--nether)}
+
+/* ─── Activity Feed ─── */
+.feed-panel{grid-column:1/-1}
+.feed-list{
+  background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  padding:0.8rem 1rem;max-height:200px;overflow-y:auto;
+}
+.feed-list::-webkit-scrollbar{width:4px}
+.feed-list::-webkit-scrollbar-track{background:transparent}
+.feed-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.feed-item{
+  font-size:0.65rem;color:var(--text2);padding:0.35rem 0;
+  border-bottom:1px solid rgba(255,255,255,0.03);
+  display:flex;gap:0.6rem;align-items:baseline;
+  animation:fadeIn 0.3s ease;
+}
+.feed-item:last-child{border-bottom:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.feed-time{color:var(--text3);font-size:0.55rem;flex-shrink:0;width:55px}
+.feed-event{color:var(--diamond);font-weight:500}
+.feed-empty{color:var(--text3);font-size:0.65rem;font-style:italic;padding:1rem 0;text-align:center}
+
+/* ─── Empty state ─── */
+.empty{
+  text-align:center;padding:2rem 1rem;color:var(--text3);font-size:0.7rem;
+  border:1px dashed var(--border);border-radius:6px;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <div>
+        <h1>ClawCraft</h1>
+        <span>Command Center</span>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div>
+        <div class="status-label">Server</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText" style="font-size:0.65rem;color:var(--text2)">connecting...</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="status-label">Agents</div>
+        <div class="agent-count" id="agentCount">-<small> online</small></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div>
+      <div class="section-title goals">Race Goals</div>
+      <div id="goalsPanel"><div class="empty">Loading goals...</div></div>
+    </div>
+    <div>
+      <div class="section-title teams">Teams</div>
+      <div id="teamsPanel"><div class="empty">Loading teams...</div></div>
+    </div>
+    <div class="feed-panel">
+      <div class="section-title feed">Live Activity</div>
+      <div class="feed-list" id="feedList">
+        <div class="feed-empty">Waiting for events...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+const feedItems = [];
+const MAX_FEED = 50;
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function relTime(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  return Math.floor(s/3600) + 'h ago';
+}
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ─── Health ───
+async function pollHealth() {
+  try {
+    const r = await fetch(API + '/health');
+    const d = await r.json();
+    $('statusDot').className = 'status-dot';
+    $('statusText').textContent = 'online';
+    $('agentCount').innerHTML = d.agents + '<small> online</small>';
+  } catch {
+    $('statusDot').className = 'status-dot offline';
+    $('statusText').textContent = 'offline';
+    $('agentCount').innerHTML = '-<small> online</small>';
+  }
+}
+
+// ─── Goals ───
+function goalClass(id) {
+  if (id === 'iron_forge') return 'iron';
+  if (id === 'diamond_vault') return 'diamond';
+  if (id === 'nether_breach') return 'nether';
+  return '';
+}
+
+function goalProgress(goal) {
+  if (goal.winner) return 100;
+  if (goal.id === 'diamond_vault' && goal.standings?.length) {
+    let max = 0;
+    for (const s of goal.standings) {
+      const m = s.progress?.match(/(\d+)\/100/);
+      if (m) max = Math.max(max, parseInt(m[1]));
+    }
+    return max;
+  }
+  return 0;
+}
+
+function goalLeader(goal) {
+  if (goal.winner) return goal.winner;
+  if (!goal.standings?.length) return null;
+  if (goal.id === 'diamond_vault') {
+    let best = null, bestVal = 0;
+    for (const s of goal.standings) {
+      const m = s.progress?.match(/(\d+)\/100/);
+      if (m && parseInt(m[1]) > bestVal) { bestVal = parseInt(m[1]); best = s.team; }
+    }
+    return best;
+  }
+  return null;
+}
+
+async function pollGoals() {
+  try {
+    const r = await fetch(API + '/goal');
+    const d = await r.json();
+    if (!d.ok) return;
+    const goals = d.goals || [];
+    if (!goals.length) { $('goalsPanel').innerHTML = '<div class="empty">No goals configured</div>'; return; }
+
+    $('goalsPanel').innerHTML = goals.map(g => {
+      const cls = goalClass(g.id);
+      const pct = goalProgress(g);
+      const leader = goalLeader(g);
+      const won = g.winner ? ' won' : '';
+      return `<div class="goal-card ${cls}${won}">
+        <div class="goal-head">
+          <div class="goal-name">${esc(g.title)}</div>
+          <div class="goal-prize">${esc(g.prize)}</div>
+        </div>
+        <div class="goal-desc">${esc(g.description)}</div>
+        <div class="goal-bar-wrap"><div class="goal-bar" style="width:${pct}%"></div></div>
+        <div class="goal-leader">
+          <span>${leader ? 'Leader: ' + esc(leader) : 'No progress yet'}</span>
+          <span>${pct}%</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch {}
+}
+
+// ─── Teams ───
+async function pollTeams() {
+  try {
+    const r = await fetch(API + '/teams');
+    const d = await r.json();
+    if (!d.ok) return;
+    const teams = d.teams || [];
+    if (!teams.length) { $('teamsPanel').innerHTML = '<div class="empty">No teams registered yet</div>'; return; }
+
+    $('teamsPanel').innerHTML = teams.map(t => {
+      const tier = t.tier || 'free';
+      const agents = t.agents || [];
+      return `<div class="team-card">
+        <div class="team-head">
+          <div class="team-name">${esc(t.name)}</div>
+          <div class="tier-badge ${tier}">${tier}</div>
+        </div>
+        ${agents.length
+          ? `<div class="agent-list">${agents.map(a => {
+              const name = typeof a === 'string' ? a : a.name || a;
+              return `<div class="agent-chip"><div class="dot running"></div>${esc(name)}</div>`;
+            }).join('')}</div>`
+          : '<div style="font-size:0.6rem;color:var(--text3)">No agents spawned</div>'
+        }
+      </div>`;
+    }).join('');
+  } catch {}
+}
+
+// ─── SSE Feed ───
+function addFeedItem(text, type) {
+  feedItems.unshift({ time: Date.now(), text, type });
+  if (feedItems.length > MAX_FEED) feedItems.pop();
+  renderFeed();
+}
+
+function renderFeed() {
+  if (!feedItems.length) { $('feedList').innerHTML = '<div class="feed-empty">Waiting for events...</div>'; return; }
+  $('feedList').innerHTML = feedItems.map(f =>
+    `<div class="feed-item">
+      <span class="feed-time">${fmtTime(f.time)}</span>
+      <span class="feed-event">${esc(f.text)}</span>
+    </div>`
+  ).join('');
+}
+
+function connectSSE() {
+  const es = new EventSource(API + '/goal/feed');
+  es.addEventListener('message', (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.event === 'goal_complete') {
+        addFeedItem(`${d.title} won by ${d.winner}! (${d.prize})`, 'goal');
+        pollGoals();
+      } else if (d.event) {
+        addFeedItem(`${d.event}: ${JSON.stringify(d)}`, 'info');
+      }
+    } catch {}
+  });
+  es.addEventListener('open', () => addFeedItem('Connected to live feed', 'info'));
+  es.onerror = () => {
+    addFeedItem('Feed disconnected — reconnecting...', 'error');
+  };
+}
+
+// ─── Init ───
+pollHealth();
+pollGoals();
+pollTeams();
+connectSSE();
+
+setInterval(pollHealth, 10000);
+setInterval(pollGoals, 5000);
+setInterval(pollTeams, 5000);
+</script>
+</body>
+</html>

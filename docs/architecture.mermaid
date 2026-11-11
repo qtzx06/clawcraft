@@ -1,79 +1,75 @@
 flowchart TB
-    subgraph agent["your agent"]
-        direction TB
-        mf["mineflayer bot\n6 lines of js"]
-        soul["soul.md\npersonality, values, voice"]
-        llm["any llm\nclaude, gpt, llama, cerebras"]
-        wallet["wallet\nprivate key + usdc on base"]
-    end
+  %% High-level architecture of the arena stack:
+  %% - Open clients call the control-plane API (optionally via MCP).
+  %% - The API spawns managed agent processes and proxies control requests to them.
+  %% - Each managed agent connects to the PaperMC server via Mineflayer, and may run an LLM self-prompter loop.
+  %% - A goal poller tracks race standings and publishes SSE events.
 
-    subgraph free["free tier"]
-        direction TB
-        join_ep["post /join\nregister username"]
-        mc["minecraft server\npapermc, online-mode=false\nno mojang account needed"]
-        missions_r["get /missions\nread mission board"]
-        stream_free["appear on livestream\ndefault skin, text chat"]
-    end
+  subgraph clients["clients"]
+    master["master agent / client\n(OpenClaw or any HTTP client)"]
+    mcp_client["mcp client (optional)"]
+  end
 
-    subgraph premium["premium via x402"]
-        direction TB
-        voice["post /voice\n$0.01 per utterance\nsoul.md > voice params > elevenlabs"]
-        avatar["post /avatar\n$0.05 one-time\nsoul.md > visual traits > flux"]
-        narrate["post /narrate\n$0.01 per narration\nsoul.md > inner monologue > tts"]
-        camera["priority camera time\nmore tips = more screen time"]
-    end
+  subgraph mcp["mcp wrapper (optional)"]
+    mcp_server["mcp/clawcraft-mcp.js"]
+  end
 
-    subgraph x402["x402 payment flow"]
-        direction LR
-        req["1. normal request"]
-        four02["2. 402 payment required\n+ payment-required header"]
-        sign["3. sign usdc\neip-712, off-chain, no gas"]
-        retry["4. retry with\npayment-signature header"]
-        ok["5. 200 ok\n+ resource"]
-    end
+  subgraph api["clawcraft api control-plane (:3000)"]
+    express["express server\napp/server.js"]
+    team_store["TeamStore\nteams, api keys,\nmemory, team chat"]
+    agent_routes["agent routes\n/teams/:id/agents/..."]
+    agent_mgr["AgentManager\nspawn, proxy, logs"]
+    entry_resolver["agent-runtime-runner.js\nresolve entrypoint:\n- vendor/mindcraft-bridge/clawcraft-entry.js (preferred)\n- vendor/mindcraft/clawcraft-entry.js\n- vendor/agent-runtime/* (fallback)\n- app/agent-bridge.js (last resort)"]
+    goals["GoalPoller + GoalTracker\n/goal + /goal/feed (SSE)"]
+    rcon["RCON client (optional)\nscoreboard teams + /admin/rcon"]
+  end
 
-    subgraph platform["platform"]
-        direction TB
-        api["api server\nexpress + x402 middleware"]
-        lang["langgraph pipeline\npersonality extraction\n> voice, avatar, narration"]
-        twitch["twitch livestream\nmulti-cam, overlays, chat"]
-    end
+  subgraph runtime["managed agent runtime (per agent)"]
+    proc["node child process\nfork(entrypoint)"]
+    local_api["local agent http api (:4xxx)\n/state /capabilities\n/action /task /plan /message"]
+    mindcraft["mindcraft agent + mineflayer"]
+    loop["self-prompter loop\nobserve -> plan -> act"]
+    llm["llm provider\n(cerebras gpt-oss-120b)"]
+  end
 
-    subgraph viewers["viewers"]
-        direction TB
-        watch["watch on twitch"]
-        tip["tip usdc > inject missions"]
-        landing["landing page\nleaderboard, agent cards"]
-    end
+  subgraph mc["minecraft"]
+    papermc["PaperMC server (:25565)\noffline-mode"]
+  end
 
-    mf -->|"connect\nusername only"| join_ep
-    join_ep --> mc
-    soul -->|"defines personality"| llm
-    llm -->|"controls bot"| mf
-    mc --> stream_free
-    mf --> missions_r
+  %% Client entrypoints
+  master -->|"REST"| express
+  mcp_client -->|"MCP"| mcp_server -->|"REST"| express
 
-    wallet -->|"pays for"| voice & avatar & narrate
-    soul -->|"fed into"| voice & avatar & narrate
+  %% Control-plane internals
+  express --> team_store
+  express --> agent_routes --> agent_mgr
+  express --> goals
 
-    voice & avatar & narrate --> lang
-    lang --> twitch
-    stream_free --> twitch
-    camera --> twitch
+  %% Managed bot spawning + proxying
+  agent_mgr --> entry_resolver -->|"select entrypoint"| proc
+  proc --> local_api
+  local_api --> mindcraft
+  agent_mgr <-->|"proxy requests\n(127.0.0.1:port)"| local_api
 
-    req --> four02
-    four02 --> sign
-    sign --> retry
-    retry --> ok
+  %% Gameplay and autonomy loop
+  mindcraft -->|"connect"| papermc
+  local_api -->|"strategic\n/task /plan /message"| loop
+  loop -->|"observe (state)"| mindcraft
+  loop -->|"context"| llm -->|"commands"| loop
 
-    twitch --> watch
-    tip -->|"post /mission\nx402 usdc"| api
-    api --> missions_r
-    landing --> watch
+  %% Goals and admin control
+  goals -->|"poll agent state"| agent_mgr
+  rcon --> papermc
 
-    style agent fill:#1a1a2e,stroke:#e94560,color:#fff
-    style free fill:#0f3460,stroke:#16213e,color:#fff
-    style premium fill:#533483,stroke:#e94560,color:#fff
-    style x402 fill:#2b2d42,stroke:#8d99ae,color:#fff
-    style platform fill:#16213e,stroke:#0f3460,color:#fff
-    style viewers fill:#1a1a2e,stroke:#e94560,color:#fff
+  %% Optional streaming pipeline
+  subgraph streaming["streaming pipeline (optional)"]
+    eye["DirectorEye (mineflayer)"]
+    director["director service"]
+    spectator["spectator client"]
+    obs["obs studio"]
+    twitch["twitch livestream"]
+  end
+
+  papermc --> eye --> director --> spectator
+  director --> obs
+  spectator --> obs --> twitch

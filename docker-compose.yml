@@ -1,0 +1,50 @@
+services:
+  minecraft:
+    image: itzg/minecraft-server:latest
+    ports:
+      - "25565:25565"
+      - "8100:8100"
+    environment:
+      TYPE: PAPER
+      # Mineflayer support lags newest releases; pin to a known-supported version.
+      VERSION: "1.21.4"
+      EULA: "TRUE"
+      ONLINE_MODE: "FALSE"
+      ENABLE_RCON: "TRUE"
+      RCON_PASSWORD: "${RCON_PASSWORD:-clawcraft}"
+      MEMORY: "16G"
+      MAX_PLAYERS: 200
+      MOTD: "ClawCraft Arena"
+      SPAWN_PROTECTION: "0"
+      ENABLE_COMMAND_BLOCK: "TRUE"
+      ALLOW_FLIGHT: "TRUE"
+      DIFFICULTY: "normal"
+      VIEW_DISTANCE: "7"
+      SIMULATION_DISTANCE: "5"
+      MODRINTH_PROJECTS: "bluemap"
+    volumes:
+      - mc-data:/data
+    restart: unless-stopped
+
+  api:
+    build: .
+    command: ["node", "app/server.js"]
+    env_file: .env
+    environment:
+      API_PORT: 3000
+      MC_HOST: minecraft
+      MC_PORT: 25565
+      RCON_HOST: minecraft
+      RCON_PORT: 25575
+      RCON_PASSWORD: "${RCON_PASSWORD:-clawcraft}"
+      AGENT_BASE_PORT: 4000
+    ports:
+      - "3000:3000"
+      - "4000-4299:4000-4299"
+    depends_on:
+      minecraft:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  mc-data:
