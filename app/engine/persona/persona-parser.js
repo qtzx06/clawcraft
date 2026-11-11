@@ -1,6 +1,5 @@
 const fs = require('fs/promises');
-
-const ALLOWED_TOOL_ACTIONS = ['mine', 'build', 'craft', 'fight', 'eat', 'chat', 'explore'];
+const { TOOL_ACTIONS: ALLOWED_TOOL_ACTIONS } = require('../tools/tool-contract');
 
 function normalizeLines(text) {
   return String(text || '')
@@ -87,10 +86,10 @@ function parseLinesToProfile(lines) {
   const visualText = extractSection(joined, ['Visual aesthetic', 'Visual']) || parseField(joined, 'Visual aesthetic');
   const behaviorText = extractSection(joined, ['Behavior constraints', 'Behavior']) || parseField(joined, 'Behavior constraints');
 
-  const values = parseSimpleList(valuesText || valuesText.replace(/,/, '\n'));
-  const speech_patterns = parseSimpleList(speechText || speechText.replace(/,/, '\n'));
-  const visual_aesthetic = parseSimpleList(visualText || visualText.replace(/,/, '\n'));
-  const behavior_constraints = parseSimpleList(behaviorText || behaviorText.replace(/,/, '\n'));
+  const values = parseSimpleList(valuesText);
+  const speech_patterns = parseSimpleList(speechText);
+  const visual_aesthetic = parseSimpleList(visualText);
+  const behavior_constraints = parseSimpleList(behaviorText);
   const toolAllowText = extractSection(joined, ['Tool permissions', 'Allowed tools', 'Tool policy', 'Tool contract']) || parseField(joined, 'Tool permissions');
   const toolDenyText = extractSection(joined, ['Forbidden tools', 'Disallowed tools', 'Blocked tools', 'Tool restrictions']) || parseField(joined, 'Forbidden tools');
   const tool_constraints = parseSimpleList(extractSection(joined, ['Tool constraints', 'Tool constraints & limits']));

@@ -1,7 +1,8 @@
 const { setTimeout: wait } = require('timers/promises');
+const { TOOL_ACTIONS, normalizeToolPolicy, safeFallbackKind } = require('../tools/tool-contract');
 
 const DEFAULT_TEMPERATURE = 0.4;
-const PLAN_KINDS = ['mine', 'build', 'craft', 'explore', 'fight', 'eat', 'chat'];
+const PLAN_KINDS = TOOL_ACTIONS;
 
 function parseQuantity(text) {
   const match = String(text || '').match(/\b(\d+)\b/);
@@ -25,28 +26,8 @@ function cleanJson(input) {
   }
 }
 
-function normalizeToolContract(raw = {}) {
-  const allowed = Array.isArray(raw.allowed_tools) ? raw.allowed_tools : [];
-  const denied = Array.isArray(raw.denied_tools) ? raw.denied_tools : [];
-  const normalizedAllowed = allowed.map(normalizeKind).filter((value) => PLAN_KINDS.includes(value));
-  const normalizedDenied = denied.map(normalizeKind).filter((value) => PLAN_KINDS.includes(value));
-
-  const computedAllowed = normalizedAllowed.length
-    ? normalizedAllowed.filter((kind) => !normalizedDenied.includes(kind))
-    : PLAN_KINDS.filter((kind) => !normalizedDenied.includes(kind));
-
-  const safeAllowed = computedAllowed.length > 0 ? computedAllowed : ['chat'];
-  return {
-    allowed_tools: safeAllowed,
-    denied_tools: normalizedDenied.filter((kind) => !normalizedAllowed.includes(kind)),
-    constraints: Array.isArray(raw.constraints) ? raw.constraints : []
-  };
-}
-
-function buildSafeFallback(allowed = []) {
-  const safe = Array.isArray(allowed) && allowed.length > 0 ? allowed : PLAN_KINDS;
-  return safe.includes('chat') ? 'chat' : safe[0];
-}
+const normalizeToolContract = normalizeToolPolicy;
+const buildSafeFallback = safeFallbackKind;
 
 class OpenAICompatibleClient {
   constructor({ baseUrl, apiKey, model, temperature = DEFAULT_TEMPERATURE, timeoutMs = 15000 } = {}) {
@@ -89,7 +70,33 @@ class OpenAICompatibleClient {
       action.details.target = 'nearest threat';
       action.details.amount = 1;
       action.forceComplete = false;
-    } else if (/eat|food|hunger|hunger|starve/.test(task)) {
+    } else if (/start.*stream|go live|stream on|open stream|twitch/.test(task)) {
+      action.kind = 'twitch.start_stream';
+      action.details = {
+        channel: this._extractChannelFromTask(task)
+      };
+      action.narration = 'I will start the Twitch stream.';
+      action.forceComplete = true;
+    } else if (/stop stream|end stream|close stream/.test(task)) {
+      action.kind = 'twitch.stop_stream';
+      action.details = {};
+      action.narration = 'I will stop the Twitch stream.';
+      action.forceComplete = true;
+    } else if (/set (stream )?title|change title/.test(task)) {
+      action.kind = 'twitch.set_title';
+      action.details = {
+        title: 'ClawCraft Stream'
+      };
+      action.narration = 'I will update the Twitch stream title.';
+      action.forceComplete = true;
+    } else if (/set game|switch game/.test(task)) {
+      action.kind = 'twitch.set_game';
+      action.details = {
+        game: 'Minecraft'
+      };
+      action.narration = 'I will update the Twitch game.';
+      action.forceComplete = true;
+    } else if (/eat|food|hunger|starve/.test(task)) {
       action.kind = 'eat';
       action.narration = 'I will look for food and eat if needed.';
       action.forceComplete = true;
@@ -121,6 +128,11 @@ class OpenAICompatibleClient {
     }
 
     return 'chat';
+  }
+
+  _extractChannelFromTask(task = '') {
+    const match = String(task).match(/@\s*([a-z0-9_]{3,25})/i) || String(task).match(/channel\s+([a-z0-9_]{3,25})/i);
+    return match ? match[1] : 'default';
   }
 
   _sanitizeNarration(text) {
@@ -211,7 +223,7 @@ class OpenAICompatibleClient {
         role: 'system',
         content: `You are a Minecraft bot policy planner.
 Return strict JSON with this shape:
-{ "kind":"mine|build|craft|fight|eat|chat|explore", "details":{}, "narration":"...", "forceComplete":false }
+{ "kind":"mine|build|craft|fight|eat|chat|explore|twitch.start_stream|twitch.stop_stream|twitch.set_title|twitch.set_game|twitch.post_chat_message|twitch.create_clip", "details":{}, "narration":"...", "forceComplete":false }
 Use only kinds in policy.allowed_tools and keep details minimal.
 If uncertain, prefer chat or explore.
 Do not return any kind in policy.denied_tools.

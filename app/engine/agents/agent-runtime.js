@@ -1,10 +1,11 @@
+const { createHash } = require('crypto');
 const { parseSoul, normalizeProfile } = require('../persona/persona-parser');
 const { buildPremiumContext } = require('../persona/persona-graph');
 const { OpenAICompatibleClient } = require('../llm/openai-compatible-client');
 const { MindcraftAdapter } = require('./mindcraft-adapter');
 const { MineflayerAdapter } = require('./mineflayer-adapter');
-
-const DEFAULT_TOOL_ACTIONS = ['mine', 'build', 'craft', 'fight', 'eat', 'chat', 'explore'];
+const { ToolDispatcher } = require('../tools/tool-dispatcher');
+const { TOOL_ACTIONS, isRemoteToolAction, normalizeToolPolicy, safeFallbackKind } = require('../tools/tool-contract');
 
 class AgentRuntime {
   constructor({
@@ -34,6 +35,19 @@ class AgentRuntime {
     this.interval = null;
     this.profile = null;
     this.toolPolicy = null;
+    this._toolDispatcher = null;
+    this._toolServiceConfig = {
+      baseUrl: process.env.TOOL_SERVICE_URL || process.env.CLAWCRAFT_TOOL_SERVICE_URL || 'http://127.0.0.1:3040',
+      token: process.env.TOOL_SERVICE_TOKEN || '',
+      signatureSecret: process.env.TOOL_SERVICE_SIGNATURE_SECRET || '',
+      timeoutMs: Number.isFinite(Number(process.env.TOOL_SERVICE_TIMEOUT_MS))
+        ? Number(process.env.TOOL_SERVICE_TIMEOUT_MS)
+        : 7000,
+      retryCount: Number.isFinite(Number(process.env.TOOL_SERVICE_RETRY_COUNT))
+        ? Number(process.env.TOOL_SERVICE_RETRY_COUNT)
+        : 2,
+      fallbackOnServiceFailure: process.env.TOOL_SERVICE_FAIL_OPEN === 'true'
+    };
     this._llm = new OpenAICompatibleClient(llmConfig);
   }
 
@@ -90,6 +104,12 @@ class AgentRuntime {
       await this.adapter.connect();
     }
     this.isRunning = true;
+    this._toolDispatcher = new ToolDispatcher({
+      adapter: this.adapter,
+      toolServiceConfig: this._toolServiceConfig,
+      fallbackOnServiceFailure: this._toolServiceConfig.fallbackOnServiceFailure,
+      logger: this.logger
+    });
     this.logger.info({ agent: this.id, username: this.username }, 'agent start');
     await this._tick();
     this.interval = setInterval(() => {
@@ -150,12 +170,34 @@ class AgentRuntime {
       kind: enforcedPlan.kind,
       text: enforcedPlan.narration
     });
-    const result = await this.adapter.performAction(enforcedPlan);
+    const requestId = this._buildToolRequestId({
+      missionId,
+      action: enforcedPlan.kind,
+      args: enforcedPlan.details,
+      fallback: this.id
+    });
+    const result = await this._dispatchAction({
+      missionId,
+      action: enforcedPlan.kind,
+      args: enforcedPlan.details || {},
+      requestId,
+      correlationId: missionId,
+      narration: enforcedPlan.narration
+    });
+    if (!result.success && isRemoteToolAction(enforcedPlan.kind) && this._toolServiceConfig.fallbackOnServiceFailure) {
+      try {
+        await this.adapter.performAction({
+          kind: 'chat',
+          narration: `${enforcedPlan.kind} failed: ${result.notes || result.reason || 'tool service unavailable'}`
+        });
+      } catch (_error) {}
+    }
 
+    const isAsyncToolAction = isRemoteToolAction(enforcedPlan.kind) && result?.success === true && !!result.job_id;
     const status = (
       enforcedPlan.forceComplete ||
-      result.success === true &&
-      nextAttempts >= this.maxAttemptsPerMission
+      isAsyncToolAction ||
+      (result.success === true && nextAttempts >= this.maxAttemptsPerMission)
     )
       ? 'done'
       : 'in_progress';
@@ -169,7 +211,11 @@ class AgentRuntime {
         attempts: nextAttempts,
         lastAction: {
           kind: enforcedPlan.kind,
+          request_id: requestId,
+          correlation_id: missionId,
+          source: result.source || 'local',
           details: enforcedPlan.details || {},
+          tool_service: result.job_id ? { job_id: result.job_id, status: result.tool_status || null } : null,
           premiumPreview: {
             voice: premiumContext.voice,
             avatarPrompt: premiumContext.avatarPrompt
@@ -193,33 +239,36 @@ class AgentRuntime {
     }
   }
 
+  _buildToolRequestId({ missionId, action, args, fallback }) {
+    const seed = `${fallback}:${missionId || 'unknown'}:${action}:${JSON.stringify(args || {})}`;
+    return createHash('sha256').update(seed).digest('hex').slice(0, 24);
+  }
+
+  async _dispatchAction({
+    missionId,
+    action,
+    args,
+    requestId,
+    correlationId,
+    narration
+  }) {
+    return this._toolDispatcher.executeAction({
+      agentId: this.id,
+      missionId,
+      action,
+      args,
+      requestId,
+      correlationId,
+      narration
+    });
+  }
+
   _normalizeToolPolicy() {
-    const contract = this.toolPolicy || {};
-    const allowed = Array.isArray(contract.allowed_tools) ? contract.allowed_tools : [];
-    const denied = Array.isArray(contract.denied_tools) ? contract.denied_tools : [];
-    const constraints = Array.isArray(contract.constraints) ? contract.constraints : [];
-
-    const normalizedAllowed = allowed
-      .map((value) => String(value || '').toLowerCase().trim())
-      .filter((value) => DEFAULT_TOOL_ACTIONS.includes(value));
-    const normalizedDenied = denied
-      .map((value) => String(value || '').toLowerCase().trim())
-      .filter((value) => DEFAULT_TOOL_ACTIONS.includes(value));
-
-    const computedAllowed = normalizedAllowed.length > 0
-      ? normalizedAllowed.filter((kind) => !normalizedDenied.includes(kind))
-      : DEFAULT_TOOL_ACTIONS.filter((kind) => !normalizedDenied.includes(kind));
-
-    return {
-      allowed_tools: computedAllowed.length > 0 ? computedAllowed : ['chat'],
-      denied_tools: normalizedDenied.filter((kind) => !normalizedAllowed.includes(kind)),
-      constraints
-    };
+    return normalizeToolPolicy(this.toolPolicy || {});
   }
 
   _safeFallbackKind(policy = {}) {
-    const allowed = Array.isArray(policy.allowed_tools) ? policy.allowed_tools : DEFAULT_TOOL_ACTIONS;
-    return allowed.includes('chat') ? 'chat' : allowed[0];
+    return safeFallbackKind(policy.allowed_tools);
   }
 
   _enforcePolicy(plan = {}) {

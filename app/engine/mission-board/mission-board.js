@@ -177,15 +177,17 @@ class MissionBoard {
     return this._withLock(async () => this._snapshot());
   }
 
+  _getOpenMissionsUnsafe() {
+    const missions = Array.isArray(this.state?.missions) ? this.state.missions : [];
+    const viewerMissions = Array.isArray(this.state?.viewer_missions) ? this.state.viewer_missions : [];
+    return [...missions, ...viewerMissions]
+      .filter((m) => m.status === 'open')
+      .sort(sortMissions)
+      .map((mission, index) => ({ ...mission, rank: index + 1 }));
+  }
+
   async getOpenMissions() {
-    return this._withLock(async () => {
-      const missions = Array.isArray(this.state?.missions) ? this.state.missions : [];
-      const viewerMissions = Array.isArray(this.state?.viewer_missions) ? this.state.viewer_missions : [];
-      return [...missions, ...viewerMissions]
-        .filter((m) => m.status === 'open')
-        .sort(sortMissions)
-        .map((mission, index) => ({ ...mission, rank: index + 1 }));
-    });
+    return this._withLock(async () => this._getOpenMissionsUnsafe());
   }
 
   async getMissionsForAgent(agentId) {
@@ -199,27 +201,34 @@ class MissionBoard {
     });
   }
 
-  async _findMission(missionId) {
+  _findMission(missionId) {
     const missions = Array.isArray(this.state?.missions) ? this.state.missions : [];
     const viewerMissions = Array.isArray(this.state?.viewer_missions) ? this.state.viewer_missions : [];
-    const all = [...missions, ...viewerMissions];
-    const index = all.findIndex((item) => String(item.id) === String(missionId));
-    if (index === -1) return null;
-    return { mission: all[index], fromMissions: index < this.state.missions.length ? 'missions' : 'viewer_missions', index };
+
+    const mIdx = missions.findIndex((item) => String(item.id) === String(missionId));
+    if (mIdx !== -1) {
+      return { mission: missions[mIdx], fromMissions: 'missions', index: mIdx };
+    }
+
+    const vIdx = viewerMissions.findIndex((item) => String(item.id) === String(missionId));
+    if (vIdx !== -1) {
+      return { mission: viewerMissions[vIdx], fromMissions: 'viewer_missions', index: vIdx };
+    }
+
+    return null;
   }
 
-  async _appendMission(rawMission, source = 'system') {
+  _appendMission(rawMission, source = 'system') {
     const mission = normalizeMission(rawMission, source);
     const key = mission.source === 'viewer' ? 'viewer_missions' : 'missions';
     const list = [...this.state[key], mission];
     this.state[key] = list.sort(sortMissions);
-    this._persist();
     return mission;
   }
 
   async addSystemMission(mission) {
     return this._withLock(async () => {
-      const created = await this._appendMission(mission, 'system');
+      const created = this._appendMission(mission, 'system');
       await this._persist();
       return created;
     });
@@ -227,7 +236,7 @@ class MissionBoard {
 
   async addViewerMission({ task, tipper = 'anonymous', amount = '0', priority = 'normal' }) {
     return this._withLock(async () => {
-      const created = await this._appendMission(
+      const created = this._appendMission(
         { task, tipper, amount, priority, source: 'viewer' },
         'viewer'
       );
@@ -238,14 +247,14 @@ class MissionBoard {
 
   async claimMission(agentId, missionId = null) {
     return this._withLock(async () => {
-      const open = await this.getOpenMissions();
+      const open = this._getOpenMissionsUnsafe();
       const missionToClaim = missionId
         ? open.find((mission) => String(mission.id) === String(missionId))
         : open[0];
 
       if (!missionToClaim) return null;
 
-      const located = await this._findMission(missionToClaim.id);
+      const located = this._findMission(missionToClaim.id);
       if (!located) return null;
 
       const list = located.fromMissions === 'missions' ? this.state.missions : this.state.viewer_missions;
@@ -267,7 +276,7 @@ class MissionBoard {
 
   async releaseMission(agentId, missionId, reason = 'released') {
     return this._withLock(async () => {
-      const missionMeta = await this._findMission(missionId);
+      const missionMeta = this._findMission(missionId);
       if (!missionMeta) return false;
       const target = missionMeta.mission;
       if (target.assigned_to !== agentId) return false;
@@ -285,7 +294,7 @@ class MissionBoard {
 
   async updateMission(missionId, patch = {}) {
     return this._withLock(async () => {
-      const missionMeta = await this._findMission(missionId);
+      const missionMeta = this._findMission(missionId);
       if (!missionMeta) return null;
 
       const target = missionMeta.mission;
