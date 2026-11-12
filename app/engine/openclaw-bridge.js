@@ -1,4 +1,5 @@
 const fs = require('fs/promises');
+const crypto = require('crypto');
 const path = require('path');
 const express = require('express');
 require('dotenv').config({
@@ -12,6 +13,7 @@ const { buildPremiumContext } = require('./persona/persona-graph');
 const DEFAULT_PORT = 3020;
 const DEFAULT_SERVER_PORT = Number(process.env.OPENCLAW_BRIDGE_PORT || DEFAULT_PORT);
 const PRIORITIES = new Set(['low', 'normal', 'high']);
+const SOULS_DIR = path.resolve(__dirname, 'souls');
 
 class ApiError extends Error {
   constructor(status, message) {
@@ -31,9 +33,11 @@ function parseJsonBody(req, res, next) {
 
 function requireAuth(token) {
   return function auth(req, res, next) {
+    // No token configured: server is bound to 127.0.0.1 only (see start()).
     if (!token) return next();
-    const provided = req.get('authorization') || '';
-    if (provided === `Bearer ${token}`) return next();
+    const provided = Buffer.from(req.get('authorization') || '');
+    const expected = Buffer.from(`Bearer ${token}`);
+    if (provided.length === expected.length && crypto.timingSafeEqual(provided, expected)) return next();
     return res.status(401).json({ ok: false, error: 'Missing or invalid authorization' });
   };
 }
@@ -180,14 +184,18 @@ class OpenClawBridge {
     const value = String(contentOrPath).trim();
     if (!value) throw new ApiError(400, 'soul is required');
 
-    const candidate = path.resolve(process.cwd(), value);
-    try {
-      const stats = await fs.stat(candidate);
-      if (stats.isFile()) {
-        return fs.readFile(candidate, 'utf8');
+    // File souls are restricted to .md files inside app/engine/souls/.
+    if (!value.includes('\n') && value.endsWith('.md')) {
+      let real;
+      try {
+        const soulsDir = await fs.realpath(SOULS_DIR);
+        real = await fs.realpath(path.resolve(soulsDir, path.basename(value)));
+        if (!real.startsWith(soulsDir + path.sep)) real = null;
+      } catch (_error) {
+        real = null;
       }
-    } catch (_error) {
-      // Not a filesystem path, try inline markdown.
+      if (!real) throw new ApiError(400, 'soul file not found in app/engine/souls');
+      return fs.readFile(real, 'utf8');
     }
 
     if (!value.includes('\n') && value.length < 8 && !value.endsWith('.md')) {
@@ -199,6 +207,10 @@ class OpenClawBridge {
 
   getLlmConfig(overrides = {}) {
     const llm = this.serverConfig.llm || {};
+    // Never send the server's API key to a caller-supplied endpoint.
+    if (overrides.baseUrl && !overrides.apiKey) {
+      throw new ApiError(400, 'llm.apiKey is required when llm.baseUrl is overridden');
+    }
     const baseUrl = overrides.baseUrl || llm.baseUrl || process.env.LLM_BASE_URL;
     const apiKey = overrides.apiKey || llm.apiKey || process.env.LLM_API_KEY || process.env.OPENAI_API_KEY;
     const model = overrides.model || llm.model || process.env.LLM_MODEL || 'gpt-4o-mini';
@@ -479,8 +491,13 @@ class OpenClawBridge {
     await this.initialize();
 
     return new Promise((resolve, reject) => {
-      const server = this.app.listen(this.port, () => {
-        this.logger.info(`openclaw bridge running on :${this.port}`);
+      // Without OPENCLAW_BRIDGE_TOKEN, only accept local connections.
+      const host = this.authToken ? '0.0.0.0' : '127.0.0.1';
+      if (!this.authToken) {
+        this.logger.warn('OPENCLAW_BRIDGE_TOKEN not set; listening on 127.0.0.1 only');
+      }
+      const server = this.app.listen(this.port, host, () => {
+        this.logger.info(`openclaw bridge running on ${host}:${this.port}`);
         resolve(server);
       });
       server.on('error', (error) => {
